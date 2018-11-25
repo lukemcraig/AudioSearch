@@ -18,14 +18,12 @@ def main():
 
     Sxx, f, t = get_spectrogram(data, rate)
 
-    # max_filter = scipy.ndimage.filters.maximum_filter(Sxx, size=(10, 10))
-    # maxima = scipy.ndimage.measurements.maximum_position(Sxx)
-    peaks, properties = scipy.signal.find_peaks(Sxx.flatten())
-    peaks_x, peaks_y = np.unravel_index(peaks, dims=Sxx.shape)
-    # xx, yy = np.meshgrid(np.arange(0, len(f)), np.arange(0, len(t)))
     plot_spectrogram(Sxx, f, t)
-
-    plt.scatter(t[peaks_y], f[peaks_x])
+    for i, spectrum in enumerate(Sxx.T):
+        print(i, "/", Sxx.T.shape[0])
+        peaks, properties = scipy.signal.find_peaks(spectrum, prominence=.05)
+        for peak in peaks:
+            plt.scatter(t[i], f[peak], marker='*', c='red')
 
     plt.show()
     return
