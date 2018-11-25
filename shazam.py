@@ -19,33 +19,30 @@ def main():
     Sxx, f, t = get_spectrogram(data, rate)
     plot_spectrogram(Sxx, f, t)
 
-    max_f = 4000
-    f_bins = Sxx.shape[0]
-    f_per_bin = max_f / f_bins
-    f_size_hz = 500
-    f_size = f_size_hz // f_per_bin
-
-    t_size_sec = 2
-    t_median_diff = np.median(t[1:-1] - t[:-2])
-    t_size = int(np.round(t_size_sec / t_median_diff))
-    max_filter = scipy.ndimage.filters.maximum_filter(Sxx, size=(f_size, t_size))
-    peak_locations = np.argwhere(Sxx == max_filter)
+    t_step = np.median(t[1:-1] - t[:-2])
+    peak_locations = find_spectrogram_peaks(Sxx, t_step)
 
     # plot_spectrogram(max_filter, f, t, alpha=0.25)
 
-    plt.scatter(t[peak_locations[:, 1]], f[peak_locations[:, 0]], marker="*", c="red")
-    # peak_detection_1(Sxx, f, t)
+    plot_spectrogram_peaks(peak_locations, f, t)
 
     plt.show()
     return
 
 
-def peak_detection_1(Sxx, f, t):
-    for i, spectrum in enumerate(Sxx.T):
-        print(i, "/", Sxx.T.shape[0])
-        peaks, properties = scipy.signal.find_peaks(spectrum, prominence=.05)
-        for peak in peaks:
-            plt.scatter(t[i], f[peak], marker='*', c='red')
+def plot_spectrogram_peaks(peak_locations, f, t):
+    plt.scatter(t[peak_locations[:, 1]], f[peak_locations[:, 0]], marker="*", c="red")
+
+
+def find_spectrogram_peaks(Sxx, t_step, f_size_hz=500, t_size_sec=2):
+    max_f = 4000
+    f_bins = Sxx.shape[0]
+    f_per_bin = max_f / f_bins
+    f_size = f_size_hz // f_per_bin
+    t_size = int(np.round(t_size_sec / t_step))
+    max_filter = scipy.ndimage.filters.maximum_filter(Sxx, size=(f_size, t_size))
+    peak_locations = np.argwhere(Sxx == max_filter)
+    return peak_locations
 
 
 def plot_spectrogram(Sxx, f, t, alpha=1.0):
