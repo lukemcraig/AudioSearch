@@ -17,16 +17,22 @@ def main():
     data, rate = downsample_audio(data, rate)
 
     Sxx, f, t = get_spectrogram(data, rate)
-
+    max_filter = scipy.ndimage.filters.maximum_filter(Sxx, size=(10, 10))
+    peak_locations = np.argwhere(Sxx == max_filter)
     plot_spectrogram(Sxx, f, t)
+    plt.scatter(t[peak_locations[:, 1]], f[peak_locations[:, 0]], marker="*", c="red")
+    # peak_detection_1(Sxx, f, t)
+
+    plt.show()
+    return
+
+
+def peak_detection_1(Sxx, f, t):
     for i, spectrum in enumerate(Sxx.T):
         print(i, "/", Sxx.T.shape[0])
         peaks, properties = scipy.signal.find_peaks(spectrum, prominence=.05)
         for peak in peaks:
             plt.scatter(t[i], f[peak], marker='*', c='red')
-
-    plt.show()
-    return
 
 
 def plot_spectrogram(Sxx, f, t):
