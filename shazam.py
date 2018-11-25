@@ -17,9 +17,22 @@ def main():
     data, rate = downsample_audio(data, rate)
 
     Sxx, f, t = get_spectrogram(data, rate)
-    max_filter = scipy.ndimage.filters.maximum_filter(Sxx, size=(10, 10))
-    peak_locations = np.argwhere(Sxx == max_filter)
     plot_spectrogram(Sxx, f, t)
+
+    max_f = 4000
+    f_bins = Sxx.shape[0]
+    f_per_bin = max_f / f_bins
+    f_size_hz = 500
+    f_size = f_size_hz // f_per_bin
+
+    t_size_sec = 2
+    t_median_diff = np.median(t[1:-1] - t[:-2])
+    t_size = int(np.round(t_size_sec / t_median_diff))
+    max_filter = scipy.ndimage.filters.maximum_filter(Sxx, size=(f_size, t_size))
+    peak_locations = np.argwhere(Sxx == max_filter)
+
+    # plot_spectrogram(max_filter, f, t, alpha=0.25)
+
     plt.scatter(t[peak_locations[:, 1]], f[peak_locations[:, 0]], marker="*", c="red")
     # peak_detection_1(Sxx, f, t)
 
@@ -35,11 +48,11 @@ def peak_detection_1(Sxx, f, t):
             plt.scatter(t[i], f[peak], marker='*', c='red')
 
 
-def plot_spectrogram(Sxx, f, t):
+def plot_spectrogram(Sxx, f, t, alpha=1.0):
     color_norm = colors.LogNorm(vmin=1 / (2 ** 20), vmax=1)
     # color_norm = colors.LogNorm(vmin=Sxx.min(), vmax=Sxx.max())
     # plt.pcolormesh(t, f, Sxx, norm=color_norm, cmap='Greys')
-    plt.pcolormesh(t, f, Sxx, norm=color_norm)
+    plt.pcolormesh(t, f, Sxx, norm=color_norm, alpha=alpha)
     plt.ylabel('Frequency [Hz]')
     plt.xlabel('Time [sec]')
     # plt.yscale('log')
