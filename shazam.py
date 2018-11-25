@@ -1,5 +1,7 @@
 import numpy as np
 import scipy.signal
+import scipy.ndimage.filters
+import scipy.ndimage.measurements
 import scipy.io.wavfile
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
@@ -16,7 +18,14 @@ def main():
 
     Sxx, f, t = get_spectrogram(data, rate)
 
+    # max_filter = scipy.ndimage.filters.maximum_filter(Sxx, size=(10, 10))
+    # maxima = scipy.ndimage.measurements.maximum_position(Sxx)
+    peaks, properties = scipy.signal.find_peaks(Sxx.flatten())
+    peaks_x, peaks_y = np.unravel_index(peaks, dims=Sxx.shape)
+    # xx, yy = np.meshgrid(np.arange(0, len(f)), np.arange(0, len(t)))
     plot_spectrogram(Sxx, f, t)
+
+    plt.scatter(t[peaks_y], f[peaks_x])
 
     plt.show()
     return
@@ -40,7 +49,8 @@ def plot_spectrogram(Sxx, f, t):
 def get_spectrogram(data, rate):
     nperseg = 1024
     noverlap = int(np.round(nperseg / 1.5))
-    f, t, Sxx = scipy.signal.spectrogram(data, fs=rate, scaling='spectrum', mode='magnitude',
+    f, t, Sxx = scipy.signal.spectrogram(data, fs=rate, scaling='spectrum',
+                                         mode='magnitude',
                                          window='hann',
                                          nperseg=nperseg,
                                          noverlap=noverlap)
