@@ -40,6 +40,7 @@ def main():
     if query_database:
         print("querying database")
         viridis = cm.get_cmap('viridis', len(fingerprints)).colors
+        stks = []
         for color_index, fingerprint in enumerate(fingerprints):
             cursor = fingerprints_collection.find({'hash': fingerprint['hash']})
             for db_fp in cursor:
@@ -47,6 +48,13 @@ def main():
                 db_fp_offset = db_fp['offset']
                 local_fp_offset = fingerprint['offset']
                 plt.scatter(db_fp_offset, local_fp_offset, c=viridis[color_index])
+                stk = db_fp_offset - local_fp_offset
+                stks.append(stk)
+    plt.grid()
+    plt.show()
+
+    plt.hist(stks)
+    plt.show()
 
     insert_into_database = False
     if insert_into_database:
@@ -62,8 +70,7 @@ def main():
 
     # plt.ylim(0, 4000)
     # plt.xlim(0, 14)
-    plt.grid()
-    plt.show()
+    # plt.show()
     return
 
 
