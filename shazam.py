@@ -47,6 +47,7 @@ def main():
 
         query_database = False
         if query_database:
+            # TODO multiple matching songs
             print("querying database")
             viridis = cm.get_cmap('viridis', len(fingerprints)).colors
             stks = []
