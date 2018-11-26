@@ -12,9 +12,13 @@ import resampy
 from splay import SplayTree
 import hashlib
 import struct
+import pymongo
 
 
 def main():
+    client = get_client()
+    fingerprints_collection = client.audioprintsDB.fingerprints
+
     data, rate = load_audio_data()
     data = crop_audio_time(data, rate)
 
@@ -38,14 +42,14 @@ def main():
     # df_peak_locations['t'] = t[df_peak_locations['t']]
     # sweep line + bst
     # df_peak_locations.sort_values(by='t', ascending=False)
-    for _, peak in df_peak_locations.iterrows():
-        peak_t = peak['t']
-        peak_f = peak['f']
+    for _, anchor in df_peak_locations.iterrows():
+        anchor_t = anchor['t']
+        anchor_f = anchor['f']
 
-        zone_time_start = peak_t + zone_t_offset
+        zone_time_start = anchor_t + zone_t_offset
         zone_time_end = min(len(t) - 1, zone_time_start + zone_t_size)
 
-        zone_freq_start = max(0, peak_f - (zone_f_size // 2))
+        zone_freq_start = max(0, anchor_f - (zone_f_size // 2))
         zone_freq_end = min(len(f) - 1, zone_freq_start + zone_f_size)
         if zone_freq_end == len(f) - 1:
             zone_freq_start = zone_freq_end - zone_f_size
@@ -56,11 +60,17 @@ def main():
         n_pairs = zone_index.sum()
         for _, second_peak in df_peak_locations[zone_index].iterrows():
             second_peak_f = second_peak['f']
-            time_delta = second_peak['t'] - peak_t
-            combined_key = combine_parts_into_key(peak_f, second_peak_f, time_delta)
+            time_delta = second_peak['t'] - anchor_t
+            combined_key = combine_parts_into_key(anchor_f, second_peak_f, time_delta)
             print(combined_key)
-            my_struct = struct.pack("3h", peak_f, second_peak_f, time_delta)
-
+            # my_struct = struct.pack("3h", anchor_f, second_peak_f, time_delta)
+            # TODO get song id
+            song_id = 0
+            fingerprints_collection.insert_one({
+                '_id': int(combined_key),
+                'songID': int(song_id),
+                'offset': int(anchor_t),
+            })
             pass
         pass
 
@@ -68,6 +78,14 @@ def main():
     plt.xlim(0, 14)
     plt.show()
     return
+
+
+def get_client():
+    print("getting client...")
+    client = pymongo.MongoClient('mongodb://localhost:27017', serverSelectionTimeoutMS=3)
+    client.server_info()
+    print("got client")
+    return client
 
 
 def combine_parts_into_key(peak_f, second_peak_f, time_delta):
