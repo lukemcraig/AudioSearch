@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 from matplotlib import cm
 from matplotlib import scale as mscale
+from mutagen.easyid3 import EasyID3
+
 from power_scale import PowerScale
 import pandas as pd
 import resampy
@@ -14,16 +16,18 @@ from splay import SplayTree
 import hashlib
 import struct
 import pymongo
+import librosa
 
 
 def main():
     client = get_client()
     fingerprints_collection = client.audioprintsDB.fingerprints
+    songs_collection = client.audioprintsDB.songs
 
-    data, rate = load_audio_data()
+    data, rate, metadata = load_audio_data()
     # data = crop_audio_time(data, rate)
 
-    data, rate = downsample_audio(data, rate)
+    # data, rate = downsample_audio(data, rate)
 
     Sxx, f, t = get_spectrogram(data, rate)
     # plot_spectrogram(Sxx, f, t)
@@ -36,7 +40,7 @@ def main():
 
     fingerprints = get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step)
 
-    query_database = True
+    query_database = False
     if query_database:
         print("querying database")
         viridis = cm.get_cmap('viridis', len(fingerprints)).colors
@@ -50,19 +54,27 @@ def main():
                 plt.scatter(db_fp_offset, local_fp_offset, c=viridis[color_index])
                 stk = db_fp_offset - local_fp_offset
                 stks.append(stk)
-    plt.grid()
-    plt.show()
+        plt.grid()
+        plt.show()
 
-    plt.hist(stks)
-    plt.show()
+        plt.hist(stks)
+        plt.show()
 
-    insert_into_database = False
+    insert_into_database = True
     if insert_into_database:
+        print("querying song in database")
+        song = {'artist': metadata['artist'], 'album': metadata['album'], 'title': metadata['title'],
+                'length': metadata['track_length_s']}
+        song_doc = songs_collection.find_one(song)
+        if song_doc is None:
+            print("inserting song into database")
+            new_id = songs_collection.count_documents({})
+            song['_id'] = new_id
+            insert_song_result = songs_collection.insert_one(song)
+            song_doc = songs_collection.find_one({"_id": insert_song_result.inserted_id})
         print("inserting into database")
         for fingerprint in fingerprints:
-            # TODO get song id from mp3 meta data
-            song_id = -1
-            fingerprint['songID'] = int(song_id)
+            fingerprint['songID'] = song_doc['_id']
             try:
                 fingerprints_collection.insert_one(fingerprint)
             except pymongo.errors.DuplicateKeyError:
@@ -195,12 +207,23 @@ def downsample_audio(data, rate):
 
 def load_audio_data():
     print("loading audio")
-    rate, data = scipy.io.wavfile.read('C:/Users\Luke\Downloads/visitormiddle.wav')
+    filepath = 'C:/Users\Luke\Downloads/Disasterpeace/Disasterpeace - Monsters Ate My Birthday Cake OST - 01 SECOND Stupidest Birthday Ever.mp3'
+    data, rate = librosa.load(filepath, mono=True, sr=8000)
+    assert rate == 8000
+    mp3tags = EasyID3(filepath)
+    metadata = {
+        "artist": mp3tags['artist'][0],
+        "album": mp3tags['album'][0],
+        "title": mp3tags['title'][0],
+        "track_length_s": len(data) / 8000
+    }
+
+    # rate, data = scipy.io.wavfile.read('C:/Users\Luke\Downloads/visitormiddle.wav')
     # left channel. TODO mono mixdown
-    data = data[:, 0]
+    # data = data[:, 0]
     # for 16 bit audio
-    data = data / (2 ** 15)
-    return data, rate
+    # data = data / (2 ** 15)
+    return data, rate, metadata
 
 
 main()
