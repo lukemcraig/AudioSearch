@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import scipy.signal
 import scipy.ndimage.filters
@@ -23,66 +25,73 @@ def main():
     client = get_client()
     fingerprints_collection = client.audioprintsDB.fingerprints
     songs_collection = client.audioprintsDB.songs
+    directory = 'C:/Users\Luke\Downloads/Disasterpeace/'
+    for filepath in os.listdir(directory):
+        if filepath[-4:] != '.mp3':
+            continue
+        data, rate, metadata = load_audio_data(directory + filepath)
+        # data = crop_audio_time(data, rate)
 
-    data, rate, metadata = load_audio_data()
-    # data = crop_audio_time(data, rate)
+        # data, rate = downsample_audio(data, rate)
 
-    # data, rate = downsample_audio(data, rate)
+        Sxx, f, t = get_spectrogram(data, rate)
+        # plot_spectrogram(Sxx, f, t)
+        f_step = np.median(f[1:-1] - f[:-2])
+        t_step = np.median(t[1:-1] - t[:-2])
+        peak_locations, max_filter = find_spectrogram_peaks(Sxx, t_step)
 
-    Sxx, f, t = get_spectrogram(data, rate)
-    # plot_spectrogram(Sxx, f, t)
-    f_step = np.median(f[1:-1] - f[:-2])
-    t_step = np.median(t[1:-1] - t[:-2])
-    peak_locations, max_filter = find_spectrogram_peaks(Sxx, t_step)
+        # plot_spectrogram(max_filter, f, t)
+        # plot_spectrogram_peaks(peak_locations, f, t)
 
-    # plot_spectrogram(max_filter, f, t)
-    # plot_spectrogram_peaks(peak_locations, f, t)
+        fingerprints = get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step)
 
-    fingerprints = get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step)
+        query_database = False
+        if query_database:
+            print("querying database")
+            viridis = cm.get_cmap('viridis', len(fingerprints)).colors
+            stks = []
+            for color_index, fingerprint in enumerate(fingerprints):
+                cursor = fingerprints_collection.find({'hash': fingerprint['hash']})
+                for db_fp in cursor:
+                    print(db_fp['songID'])
+                    db_fp_offset = db_fp['offset']
+                    local_fp_offset = fingerprint['offset']
+                    # plt.scatter(db_fp_offset, local_fp_offset, c=viridis[color_index])
+                    stk = db_fp_offset - local_fp_offset
+                    stks.append(stk)
+            # plt.grid()
+            # plt.show()
+            #
+            # plt.hist(stks)
+            # plt.show()
 
-    query_database = False
-    if query_database:
-        print("querying database")
-        viridis = cm.get_cmap('viridis', len(fingerprints)).colors
-        stks = []
-        for color_index, fingerprint in enumerate(fingerprints):
-            cursor = fingerprints_collection.find({'hash': fingerprint['hash']})
-            for db_fp in cursor:
-                print(db_fp['songID'])
-                db_fp_offset = db_fp['offset']
-                local_fp_offset = fingerprint['offset']
-                plt.scatter(db_fp_offset, local_fp_offset, c=viridis[color_index])
-                stk = db_fp_offset - local_fp_offset
-                stks.append(stk)
-        plt.grid()
-        plt.show()
+        insert_into_database = True
+        if insert_into_database:
+            print("querying song in database")
+            song = {'artist': metadata['artist'], 'album': metadata['album'], 'title': metadata['title'],
+                    'length': metadata['track_length_s']}
+            song_doc = songs_collection.find_one(song)
+            if song_doc is None:
+                print("inserting song into database")
+                most_recent_song = songs_collection.find_one({}, sort=[(u"_id", -1)])
+                if most_recent_song is not None:
+                    new_id = most_recent_song['_id'] + 1
+                else:
+                    new_id = 0
+                song['_id'] = new_id
+                insert_song_result = songs_collection.insert_one(song)
+                song_doc = songs_collection.find_one({"_id": insert_song_result.inserted_id})
+            print("inserting into database")
+            for fingerprint in fingerprints:
+                fingerprint['songID'] = song_doc['_id']
+                try:
+                    fingerprints_collection.insert_one(fingerprint)
+                except pymongo.errors.DuplicateKeyError:
+                    continue
 
-        plt.hist(stks)
-        plt.show()
-
-    insert_into_database = True
-    if insert_into_database:
-        print("querying song in database")
-        song = {'artist': metadata['artist'], 'album': metadata['album'], 'title': metadata['title'],
-                'length': metadata['track_length_s']}
-        song_doc = songs_collection.find_one(song)
-        if song_doc is None:
-            print("inserting song into database")
-            new_id = songs_collection.find_one({}, sort=[(u"_id", -1)])['_id'] + 1
-            song['_id'] = new_id
-            insert_song_result = songs_collection.insert_one(song)
-            song_doc = songs_collection.find_one({"_id": insert_song_result.inserted_id})
-        print("inserting into database")
-        for fingerprint in fingerprints:
-            fingerprint['songID'] = song_doc['_id']
-            try:
-                fingerprints_collection.insert_one(fingerprint)
-            except pymongo.errors.DuplicateKeyError:
-                continue
-
-    # plt.ylim(0, 4000)
-    # plt.xlim(0, 14)
-    # plt.show()
+        # plt.ylim(0, 4000)
+        # plt.xlim(0, 14)
+        # plt.show()
     return
 
 
@@ -205,9 +214,8 @@ def downsample_audio(data, rate):
     return data, rate
 
 
-def load_audio_data():
+def load_audio_data(filepath):
     print("loading audio")
-    filepath = 'C:/Users\Luke\Downloads/Disasterpeace/Disasterpeace - Monsters Ate My Birthday Cake OST - 01 SECOND Stupidest Birthday Ever.mp3'
     data, rate = librosa.load(filepath, mono=True, sr=8000)
     assert rate == 8000
     mp3tags = EasyID3(filepath)
