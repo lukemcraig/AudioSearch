@@ -9,6 +9,9 @@ from matplotlib import scale as mscale
 from power_scale import PowerScale
 import pandas as pd
 import resampy
+from splay import SplayTree
+import hashlib
+import struct
 
 
 def main():
@@ -19,7 +22,7 @@ def main():
 
     Sxx, f, t = get_spectrogram(data, rate)
     # plot_spectrogram(Sxx, f, t)
-
+    f_step = np.median(f[1:-1] - f[:-2])
     t_step = np.median(t[1:-1] - t[:-2])
     peak_locations, max_filter = find_spectrogram_peaks(Sxx, t_step)
 
@@ -27,16 +30,52 @@ def main():
     plot_spectrogram_peaks(peak_locations, f, t)
 
     fan_out_factor = 10
+    zone_f_size = 1400 // f_step
+    zone_t_size = 6 // t_step
+    zone_t_offset = 1.5 // t_step
     df_peak_locations = pd.DataFrame(peak_locations, columns=['f', 't'])
+    # df_peak_locations['f'] = f[df_peak_locations['f']]
+    # df_peak_locations['t'] = t[df_peak_locations['t']]
     # sweep line + bst
-    df_peak_locations.sort_values(by='t', ascending=False)
+    # df_peak_locations.sort_values(by='t', ascending=False)
+    for _, peak in df_peak_locations.iterrows():
+        peak_t = peak['t']
+        peak_f = peak['f']
 
+        zone_time_start = peak_t + zone_t_offset
+        zone_time_end = min(len(t) - 1, zone_time_start + zone_t_size)
 
+        zone_freq_start = max(0, peak_f - (zone_f_size // 2))
+        zone_freq_end = min(len(f) - 1, zone_freq_start + zone_f_size)
+        if zone_freq_end == len(f) - 1:
+            zone_freq_start = zone_freq_end - zone_f_size
+
+        time_index = (df_peak_locations['t'] <= zone_time_end) & (df_peak_locations['t'] >= zone_time_start)
+        freq_index = (zone_freq_start <= df_peak_locations['f']) & (df_peak_locations['f'] <= zone_freq_end)
+        zone_index = time_index & freq_index
+        n_pairs = zone_index.sum()
+        for _, second_peak in df_peak_locations[zone_index].iterrows():
+            second_peak_f = second_peak['f']
+            time_delta = second_peak['t'] - peak_t
+            combined_key = combine_parts_into_key(peak_f, second_peak_f, time_delta)
+            print(combined_key)
+            my_struct = struct.pack("3h", peak_f, second_peak_f, time_delta)
+
+            pass
+        pass
 
     plt.ylim(0, 4000)
     plt.xlim(0, 14)
     plt.show()
     return
+
+
+def combine_parts_into_key(peak_f, second_peak_f, time_delta):
+    combined_key = peak_f << 10
+    combined_key += second_peak_f
+    combined_key <<= 10
+    combined_key += time_delta
+    return combined_key
 
 
 def plot_spectrogram_peaks(peak_locations, f, t):
@@ -95,6 +134,7 @@ def downsample_audio(data, rate):
 def load_audio_data():
     rate, data = scipy.io.wavfile.read('C:/Users\Luke\Downloads\surfing on a rocket.wav')
     data = data[:, 0]
+    # for 16 bit audio
     data = data / (2 ** 15)
     return data, rate
 
