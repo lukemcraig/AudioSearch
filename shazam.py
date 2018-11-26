@@ -20,7 +20,7 @@ def main():
     fingerprints_collection = client.audioprintsDB.fingerprints
 
     data, rate = load_audio_data()
-    data = crop_audio_time(data, rate)
+    # data = crop_audio_time(data, rate)
 
     data, rate = downsample_audio(data, rate)
 
@@ -35,20 +35,25 @@ def main():
 
     fingerprints = get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step)
 
-    insert_into_database = False
-    query_database = True
-
+    query_database = False
     if query_database:
+        print("querying database")
         for fingerprint in fingerprints:
             cursor = fingerprints_collection.find({'hash': fingerprint['hash']})
             for db_fp in cursor:
                 print(db_fp['songID'])
+
+    insert_into_database = True
     if insert_into_database:
+        print("inserting into database")
         for fingerprint in fingerprints:
-            # TODO get song id somewhere
-            song_id = -1
+            # TODO get song id from mp3 meta data
+            song_id = 1
             fingerprint['songID'] = int(song_id)
-            fingerprints_collection.insert_one(fingerprint)
+            try:
+                fingerprints_collection.insert_one(fingerprint)
+            except pymongo.errors.DuplicateKeyError:
+                continue
 
     # plt.ylim(0, 4000)
     # plt.xlim(0, 14)
@@ -57,6 +62,7 @@ def main():
 
 
 def get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step):
+    print("get_fingerprints_from_peaks")
     # TODO fan out factor
     fan_out_factor = 10
     zone_f_size = 1400 // f_step
@@ -68,7 +74,8 @@ def get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step):
     # sweep line + bst
     # df_peak_locations.sort_values(by='t', ascending=False)
     fingerprints = []
-    for _, anchor in df_peak_locations.iterrows():
+    for i, anchor in df_peak_locations.iterrows():
+        print(i, "/", len(df_peak_locations))
         anchor_t = anchor['t']
         anchor_f = anchor['f']
 
@@ -84,7 +91,9 @@ def get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step):
         freq_index = (zone_freq_start <= df_peak_locations['f']) & (df_peak_locations['f'] <= zone_freq_end)
         zone_index = time_index & freq_index
         n_pairs = zone_index.sum()
-        for i, second_peak in df_peak_locations[zone_index].iterrows():
+        paired_df_peak_locations = df_peak_locations[zone_index]
+        for j, second_peak in paired_df_peak_locations.iterrows():
+            print("    ", j, "/", n_pairs)
             second_peak_f = second_peak['f']
             time_delta = second_peak['t'] - anchor_t
             combined_key = combine_parts_into_key(anchor_f, second_peak_f, time_delta)
@@ -116,6 +125,7 @@ def plot_spectrogram_peaks(peak_locations, f, t):
 
 
 def find_spectrogram_peaks(Sxx, t_step, f_size_hz=500, t_size_sec=2):
+    print('find_spectrogram_peaks')
     max_f = 4000
     f_bins = Sxx.shape[0]
     f_per_bin = max_f / f_bins
@@ -142,8 +152,10 @@ def plot_spectrogram(Sxx, f, t, alpha=1.0):
 
 
 def get_spectrogram(data, rate):
+    print('get_spectrogram')
     nperseg = 1024
     noverlap = int(np.round(nperseg / 1.5))
+    # TODO scaling?
     f, t, Sxx = scipy.signal.spectrogram(data, fs=rate, scaling='spectrum',
                                          mode='magnitude',
                                          window='hann',
@@ -153,11 +165,13 @@ def get_spectrogram(data, rate):
 
 
 def crop_audio_time(data, rate):
+    print("cropping audio")
     data = data[:rate * 14]
     return data
 
 
 def downsample_audio(data, rate):
+    print("downsampling audio")
     downsampled_rate = 8000
     data = resampy.resample(data, rate, downsampled_rate)
     rate = downsampled_rate
@@ -165,7 +179,9 @@ def downsample_audio(data, rate):
 
 
 def load_audio_data():
-    rate, data = scipy.io.wavfile.read('C:/Users\Luke\Downloads/surfnoise.wav')
+    print("loading audio")
+    rate, data = scipy.io.wavfile.read('C:/Users\Luke\Downloads/the visitor.wav')
+    # left channel. TODO mono mixdown
     data = data[:, 0]
     # for 16 bit audio
     data = data / (2 ** 15)
