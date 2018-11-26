@@ -17,15 +17,15 @@ def main():
     data, rate = downsample_audio(data, rate)
 
     Sxx, f, t = get_spectrogram(data, rate)
-    plot_spectrogram(Sxx, f, t)
+    # plot_spectrogram(Sxx, f, t)
 
     t_step = np.median(t[1:-1] - t[:-2])
-    peak_locations = find_spectrogram_peaks(Sxx, t_step)
-
-    # plot_spectrogram(max_filter, f, t, alpha=0.25)
-
+    peak_locations, max_filter = find_spectrogram_peaks(Sxx, t_step)
+    plot_spectrogram(max_filter, f, t)
     plot_spectrogram_peaks(peak_locations, f, t)
 
+    plt.ylim(0, 4000)
+    plt.xlim(0, 14)
     plt.show()
     return
 
@@ -42,7 +42,7 @@ def find_spectrogram_peaks(Sxx, t_step, f_size_hz=500, t_size_sec=2):
     t_size = int(np.round(t_size_sec / t_step))
     max_filter = scipy.ndimage.filters.maximum_filter(Sxx, size=(f_size, t_size))
     peak_locations = np.argwhere(Sxx == max_filter)
-    return peak_locations
+    return peak_locations, max_filter
 
 
 def plot_spectrogram(Sxx, f, t, alpha=1.0):
