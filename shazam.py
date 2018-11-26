@@ -35,7 +35,7 @@ def main():
 
     fingerprints = get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step)
 
-    query_database = False
+    query_database = True
     if query_database:
         print("querying database")
         for fingerprint in fingerprints:
@@ -43,12 +43,12 @@ def main():
             for db_fp in cursor:
                 print(db_fp['songID'])
 
-    insert_into_database = True
+    insert_into_database = False
     if insert_into_database:
         print("inserting into database")
         for fingerprint in fingerprints:
             # TODO get song id from mp3 meta data
-            song_id = 1
+            song_id = -1
             fingerprint['songID'] = int(song_id)
             try:
                 fingerprints_collection.insert_one(fingerprint)
@@ -180,7 +180,7 @@ def downsample_audio(data, rate):
 
 def load_audio_data():
     print("loading audio")
-    rate, data = scipy.io.wavfile.read('C:/Users\Luke\Downloads/the visitor.wav')
+    rate, data = scipy.io.wavfile.read('C:/Users\Luke\Downloads/surfnoise2.wav')
     # left channel. TODO mono mixdown
     data = data[:, 0]
     # for 16 bit audio
