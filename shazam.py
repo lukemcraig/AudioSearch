@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 from matplotlib import scale as mscale
 from power_scale import PowerScale
+import pandas as pd
 import resampy
 
 
@@ -21,8 +22,16 @@ def main():
 
     t_step = np.median(t[1:-1] - t[:-2])
     peak_locations, max_filter = find_spectrogram_peaks(Sxx, t_step)
+
     plot_spectrogram(max_filter, f, t)
     plot_spectrogram_peaks(peak_locations, f, t)
+
+    fan_out_factor = 10
+    df_peak_locations = pd.DataFrame(peak_locations, columns=['f', 't'])
+    # sweep line + bst
+    df_peak_locations.sort_values(by='t', ascending=False)
+
+
 
     plt.ylim(0, 4000)
     plt.xlim(0, 14)
