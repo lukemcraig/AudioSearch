@@ -68,7 +68,7 @@ def main():
         song_doc = songs_collection.find_one(song)
         if song_doc is None:
             print("inserting song into database")
-            new_id = songs_collection.count_documents({})
+            new_id = songs_collection.find_one({}, sort=[(u"_id", -1)])['_id'] + 1
             song['_id'] = new_id
             insert_song_result = songs_collection.insert_one(song)
             song_doc = songs_collection.find_one({"_id": insert_song_result.inserted_id})
