@@ -30,9 +30,33 @@ def main():
     t_step = np.median(t[1:-1] - t[:-2])
     peak_locations, max_filter = find_spectrogram_peaks(Sxx, t_step)
 
-    plot_spectrogram(max_filter, f, t)
-    plot_spectrogram_peaks(peak_locations, f, t)
+    # plot_spectrogram(max_filter, f, t)
+    # plot_spectrogram_peaks(peak_locations, f, t)
 
+    fingerprints = get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step)
+
+    insert_into_database = False
+    query_database = True
+
+    if query_database:
+        for fingerprint in fingerprints:
+            cursor = fingerprints_collection.find({'hash': fingerprint['hash']})
+            for db_fp in cursor:
+                print(db_fp['songID'])
+    if insert_into_database:
+        for fingerprint in fingerprints:
+            # TODO get song id somewhere
+            song_id = -1
+            fingerprint['songID'] = int(song_id)
+            fingerprints_collection.insert_one(fingerprint)
+
+    # plt.ylim(0, 4000)
+    # plt.xlim(0, 14)
+    # plt.show()
+    return
+
+
+def get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step):
     # TODO fan out factor
     fan_out_factor = 10
     zone_f_size = 1400 // f_step
@@ -42,7 +66,8 @@ def main():
     # df_peak_locations['f'] = f[df_peak_locations['f']]
     # df_peak_locations['t'] = t[df_peak_locations['t']]
     # sweep line + bst
-    df_peak_locations.sort_values(by='t', ascending=False)
+    # df_peak_locations.sort_values(by='t', ascending=False)
+    fingerprints = []
     for _, anchor in df_peak_locations.iterrows():
         anchor_t = anchor['t']
         anchor_f = anchor['f']
@@ -59,28 +84,15 @@ def main():
         freq_index = (zone_freq_start <= df_peak_locations['f']) & (df_peak_locations['f'] <= zone_freq_end)
         zone_index = time_index & freq_index
         n_pairs = zone_index.sum()
-        for _, second_peak in df_peak_locations[zone_index].iterrows():
+        for i, second_peak in df_peak_locations[zone_index].iterrows():
             second_peak_f = second_peak['f']
             time_delta = second_peak['t'] - anchor_t
             combined_key = combine_parts_into_key(anchor_f, second_peak_f, time_delta)
-            print(combined_key)
-            # my_struct = struct.pack("3h", anchor_f, second_peak_f, time_delta)
-
-            cursor = fingerprints_collection.find({'hash': int(combined_key)})
-            for fp in cursor:
-                print(fp['songID'])
-            if False:
-                # TODO get song id
-                song_id = 1
-                fingerprint = {'hash': int(combined_key), 'songID': int(song_id), 'offset': int(anchor_t)}
-                fingerprints_collection.insert_one(fingerprint)
-            pass
-        pass
-
-    plt.ylim(0, 4000)
-    plt.xlim(0, 14)
-    plt.show()
-    return
+            # print(combined_key)
+            fingerprint = {'hash': int(combined_key), 'offset': int(anchor_t)}
+            fingerprints.append(fingerprint)
+    # df_fingerprints = pd.DataFrame(fingerprints)
+    return fingerprints
 
 
 def get_client():
@@ -153,7 +165,7 @@ def downsample_audio(data, rate):
 
 
 def load_audio_data():
-    rate, data = scipy.io.wavfile.read('C:/Users\Luke\Downloads/the visitor.wav')
+    rate, data = scipy.io.wavfile.read('C:/Users\Luke\Downloads/surfnoise.wav')
     data = data[:, 0]
     # for 16 bit audio
     data = data / (2 ** 15)
