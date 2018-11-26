@@ -5,6 +5,7 @@ import scipy.ndimage.measurements
 import scipy.io.wavfile
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
+from matplotlib import cm
 from matplotlib import scale as mscale
 from power_scale import PowerScale
 import pandas as pd
@@ -38,10 +39,14 @@ def main():
     query_database = True
     if query_database:
         print("querying database")
-        for fingerprint in fingerprints:
+        viridis = cm.get_cmap('viridis', len(fingerprints)).colors
+        for color_index, fingerprint in enumerate(fingerprints):
             cursor = fingerprints_collection.find({'hash': fingerprint['hash']})
             for db_fp in cursor:
                 print(db_fp['songID'])
+                db_fp_offset = db_fp['offset']
+                local_fp_offset = fingerprint['offset']
+                plt.scatter(db_fp_offset, local_fp_offset, c=viridis[color_index])
 
     insert_into_database = False
     if insert_into_database:
@@ -57,7 +62,8 @@ def main():
 
     # plt.ylim(0, 4000)
     # plt.xlim(0, 14)
-    # plt.show()
+    plt.grid()
+    plt.show()
     return
 
 
@@ -87,11 +93,13 @@ def get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step):
         if zone_freq_end == len(f) - 1:
             zone_freq_start = zone_freq_end - zone_f_size
 
+        # TODO better way to check the zone
         time_index = (df_peak_locations['t'] <= zone_time_end) & (df_peak_locations['t'] >= zone_time_start)
         freq_index = (zone_freq_start <= df_peak_locations['f']) & (df_peak_locations['f'] <= zone_freq_end)
         zone_index = time_index & freq_index
         n_pairs = zone_index.sum()
         paired_df_peak_locations = df_peak_locations[zone_index]
+
         for j, second_peak in paired_df_peak_locations.iterrows():
             print("    ", j, "/", n_pairs)
             second_peak_f = second_peak['f']
@@ -180,7 +188,7 @@ def downsample_audio(data, rate):
 
 def load_audio_data():
     print("loading audio")
-    rate, data = scipy.io.wavfile.read('C:/Users\Luke\Downloads/surfnoise2.wav')
+    rate, data = scipy.io.wavfile.read('C:/Users\Luke\Downloads/visitormiddle.wav')
     # left channel. TODO mono mixdown
     data = data[:, 0]
     # for 16 bit audio
