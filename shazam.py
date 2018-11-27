@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 from matplotlib import cm
 from matplotlib import scale as mscale
+import matplotlib.patches as patches
+import matplotlib.ticker as plticker
 from mutagen.easyid3 import EasyID3
 
 from power_scale import PowerScale
@@ -35,14 +37,50 @@ def main():
         # data, rate = downsample_audio(data, rate)
 
         Sxx, f, t = get_spectrogram(data, rate)
-        # plot_spectrogram(Sxx, f, t)
+
+        # plt.style.use('ggplot')
+        ax = plt.subplot(2, 3, 1)
+        plt.title("1. Spectrogram")
+        plot_spectrogram(Sxx, f, t)
         f_step = np.median(f[1:-1] - f[:-2])
         t_step = np.median(t[1:-1] - t[:-2])
-        peak_locations, max_filter = find_spectrogram_peaks(Sxx, t_step)
+        peak_locations, max_filter, max_filter_size = find_spectrogram_peaks(Sxx, t_step)
 
-        # plot_spectrogram(max_filter, f, t)
-        # plot_spectrogram_peaks(peak_locations, f, t)
+        plt.subplot(2, 3, 2, sharex=ax, sharey=ax)
+        plt.title("2. Max Filtered")
+        plot_grid_of_filter_size(max_filter_size)
+        plot_spectrogram(max_filter, f, t)
+        # rect = patches.Rectangle((0, 0), max_filter_size[1] * t_step, max_filter_size[0] * f_step, edgecolor="black")
+        # plt.gca().add_patch(rect)
+        # ylim = plt.ylim()
+        # xlim = plt.xlim()
+        # for i in range(23):
+        #     plt.axvline(x=max_filter_size[0] * t_step * i)
+        # for i in range(9):
+        #     plt.axhline(y=max_filter_size[1] * f_step * i)
+        # plt.ylim(ylim)
+        # plt.xlim(xlim)
 
+        plt.subplot(2, 3, 3, sharex=ax, sharey=ax)
+        plt.title("3.(A) Max Filtered == Spectrogram")
+        plot_spectrogram(max_filter, f, t)
+        plot_grid_of_filter_size(max_filter_size)
+        plot_spectrogram_peaks(peak_locations, f, t)
+
+        plt.subplot(2, 3, 4, sharex=ax, sharey=ax)
+        plt.title("3.(B) Max Filtered == Spectrogram")
+        plot_spectrogram(Sxx, f, t)
+        plot_grid_of_filter_size(max_filter_size)
+        plot_spectrogram_peaks(peak_locations, f, t)
+
+        plt.subplot(2, 3, 5, sharex=ax, sharey=ax)
+        plt.title("3.(C) Max Filtered == Spectrogram")
+        # plot_spectrogram(Sxx, f, t)
+        plot_grid_of_filter_size(max_filter_size)
+        plot_spectrogram_peaks(peak_locations, f, t)
+        plt.xlim(0, 500)
+        plt.ylim(0, 512)
+        plt.show()
         fingerprints = get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step)
 
         query_database = False
@@ -93,6 +131,13 @@ def main():
         # plt.ylim(0, 4000)
         # plt.xlim(0, 14)
         # plt.show()
+    return
+
+
+def plot_grid_of_filter_size(max_filter_size):
+    plt.gca().xaxis.set_major_locator(plticker.MultipleLocator(base=max_filter_size[0]))
+    plt.gca().yaxis.set_major_locator(plticker.MultipleLocator(base=max_filter_size[1]))
+    plt.grid(True, color='Black')
     return
 
 
@@ -158,7 +203,9 @@ def combine_parts_into_key(peak_f, second_peak_f, time_delta):
 
 
 def plot_spectrogram_peaks(peak_locations, f, t):
-    plt.scatter(t[peak_locations[:, 1]], f[peak_locations[:, 0]], marker="*", c="red")
+    # plt.scatter(t[peak_locations[:, 1]], f[peak_locations[:, 0]], marker="*", c="red")
+    plt.scatter(peak_locations[:, 1], peak_locations[:, 0], marker="*", c="Tomato", edgecolor="Snow", linewidths=.5)
+    return
 
 
 def find_spectrogram_peaks(Sxx, t_step, f_size_hz=500, t_size_sec=2):
@@ -166,25 +213,32 @@ def find_spectrogram_peaks(Sxx, t_step, f_size_hz=500, t_size_sec=2):
     max_f = 4000
     f_bins = Sxx.shape[0]
     f_per_bin = max_f / f_bins
-    f_size = f_size_hz // f_per_bin
+    f_size = int(np.round(f_size_hz / f_per_bin))
     t_size = int(np.round(t_size_sec / t_step))
-    max_filter = scipy.ndimage.filters.maximum_filter(Sxx, size=(f_size, t_size))
+
+    max_filter = scipy.ndimage.filters.maximum_filter(Sxx, size=(f_size, t_size), mode='constant')
     peak_locations = np.argwhere(Sxx == max_filter)
-    return peak_locations, max_filter
+    return peak_locations, max_filter, (t_size, f_size)
 
 
 def plot_spectrogram(Sxx, f, t, alpha=1.0):
     color_norm = colors.LogNorm(vmin=1 / (2 ** 20), vmax=1)
     # color_norm = colors.LogNorm(vmin=Sxx.min(), vmax=Sxx.max())
     # plt.pcolormesh(t, f, Sxx, norm=color_norm, cmap='Greys')
-    plt.pcolormesh(t, f, Sxx, norm=color_norm, alpha=alpha)
-    plt.ylabel('Frequency [Hz]')
-    plt.xlabel('Time [sec]')
+    # plt.pcolormesh(t, f, Sxx, norm=color_norm, alpha=alpha)
+    # plt.pcolormesh(Sxx, alpha=alpha, cmap='gray')
+    # plt.pcolormesh(Sxx, norm=color_norm, alpha=alpha, cmap='gray')
+    plt.pcolormesh(Sxx, norm=color_norm, alpha=alpha)
+    # plt.ylabel('Frequency [Hz]')
+    # plt.xlabel('Time [sec]')
+    plt.ylabel('Frequency Bin Index')
+    plt.xlabel('Time Segment Index')
     # plt.yscale('log')
     # mscale.register_scale(PowerScale)
     # plt.yscale('powerscale', power=.5)
-    plt.yticks(rotation=0)
-    plt.yticks([0, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000])
+
+    # plt.yticks(rotation=0)
+    # plt.yticks([0, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000])
     return
 
 
