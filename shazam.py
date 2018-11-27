@@ -16,9 +16,6 @@ from mutagen.easyid3 import EasyID3
 from power_scale import PowerScale
 import pandas as pd
 import resampy
-from splay import SplayTree
-import hashlib
-import struct
 import pymongo
 import librosa
 
