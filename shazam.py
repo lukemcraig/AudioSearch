@@ -34,7 +34,10 @@ def main():
         subset_length = min(len(data), subset_length)
         random_start_time = np.random.randint(0, len(data) - subset_length)
         data = data[random_start_time:random_start_time + subset_length]
-        # white_noise = np.random.random()
+        white_noise = (np.random.random(len(data)) * 2) - 1
+        # TODO SNR
+        data += (white_noise * .05)
+        data /= max(data.max(), -data.min())
         # data = crop_audio_time(data, rate)
 
         # data, rate = downsample_audio(data, rate)
@@ -42,14 +45,14 @@ def main():
         Sxx, f, t = get_spectrogram(data, rate)
 
         # plt.style.use('ggplot')
-        if False:
+        if True:
             ax = plt.subplot(2, 3, 1)
             plt.title("1. Spectrogram")
             plot_spectrogram(Sxx, f, t)
         f_step = np.median(f[1:-1] - f[:-2])
         t_step = np.median(t[1:-1] - t[:-2])
         peak_locations, max_filter, max_filter_size = find_spectrogram_peaks(Sxx, t_step)
-        if False:
+        if True:
             plt.subplot(2, 3, 2, sharex=ax, sharey=ax)
             plt.title("2. Max Filtered")
             plot_grid_of_filter_size(max_filter_size)
