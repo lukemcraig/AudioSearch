@@ -34,7 +34,7 @@ def main():
         subset_length = min(len(data), subset_length)
         random_start_time = np.random.randint(0, len(data) - subset_length)
         data = data[random_start_time:random_start_time + subset_length]
-
+        # white_noise = np.random.random()
         # data = crop_audio_time(data, rate)
 
         # data, rate = downsample_audio(data, rate)
@@ -42,53 +42,54 @@ def main():
         Sxx, f, t = get_spectrogram(data, rate)
 
         # plt.style.use('ggplot')
-        ax = plt.subplot(2, 3, 1)
-        plt.title("1. Spectrogram")
-        plot_spectrogram(Sxx, f, t)
+        if False:
+            ax = plt.subplot(2, 3, 1)
+            plt.title("1. Spectrogram")
+            plot_spectrogram(Sxx, f, t)
         f_step = np.median(f[1:-1] - f[:-2])
         t_step = np.median(t[1:-1] - t[:-2])
         peak_locations, max_filter, max_filter_size = find_spectrogram_peaks(Sxx, t_step)
+        if False:
+            plt.subplot(2, 3, 2, sharex=ax, sharey=ax)
+            plt.title("2. Max Filtered")
+            plot_grid_of_filter_size(max_filter_size)
+            plot_spectrogram(max_filter, f, t)
+            # rect = patches.Rectangle((0, 0), max_filter_size[1] * t_step, max_filter_size[0] * f_step, edgecolor="black")
+            # plt.gca().add_patch(rect)
+            # ylim = plt.ylim()
+            # xlim = plt.xlim()
+            # for i in range(23):
+            #     plt.axvline(x=max_filter_size[0] * t_step * i)
+            # for i in range(9):
+            #     plt.axhline(y=max_filter_size[1] * f_step * i)
+            # plt.ylim(ylim)
+            # plt.xlim(xlim)
 
-        plt.subplot(2, 3, 2, sharex=ax, sharey=ax)
-        plt.title("2. Max Filtered")
-        plot_grid_of_filter_size(max_filter_size)
-        plot_spectrogram(max_filter, f, t)
-        # rect = patches.Rectangle((0, 0), max_filter_size[1] * t_step, max_filter_size[0] * f_step, edgecolor="black")
-        # plt.gca().add_patch(rect)
-        # ylim = plt.ylim()
-        # xlim = plt.xlim()
-        # for i in range(23):
-        #     plt.axvline(x=max_filter_size[0] * t_step * i)
-        # for i in range(9):
-        #     plt.axhline(y=max_filter_size[1] * f_step * i)
-        # plt.ylim(ylim)
-        # plt.xlim(xlim)
+            plt.subplot(2, 3, 3, sharex=ax, sharey=ax)
+            plt.title("3.(A) Max Filtered == Spectrogram")
+            plot_spectrogram(max_filter, f, t)
+            plot_grid_of_filter_size(max_filter_size)
+            plot_spectrogram_peaks(peak_locations, f, t)
 
-        plt.subplot(2, 3, 3, sharex=ax, sharey=ax)
-        plt.title("3.(A) Max Filtered == Spectrogram")
-        plot_spectrogram(max_filter, f, t)
-        plot_grid_of_filter_size(max_filter_size)
-        plot_spectrogram_peaks(peak_locations, f, t)
+            plt.subplot(2, 3, 4, sharex=ax, sharey=ax)
+            plt.title("3.(B) Max Filtered == Spectrogram")
+            plot_spectrogram(Sxx, f, t)
+            plot_grid_of_filter_size(max_filter_size)
+            plot_spectrogram_peaks(peak_locations, f, t)
 
-        plt.subplot(2, 3, 4, sharex=ax, sharey=ax)
-        plt.title("3.(B) Max Filtered == Spectrogram")
-        plot_spectrogram(Sxx, f, t)
-        plot_grid_of_filter_size(max_filter_size)
-        plot_spectrogram_peaks(peak_locations, f, t)
-
-        plt.subplot(2, 3, 5, sharex=ax, sharey=ax)
-        plt.title("3.(C) Max Filtered == Spectrogram")
-        # plot_spectrogram(Sxx, f, t)
-        plot_grid_of_filter_size(max_filter_size)
-        plot_spectrogram_peaks(peak_locations, f, t)
-        plt.xlim(0, 500)
-        plt.ylim(0, 512)
-        plt.show()
+            plt.subplot(2, 3, 5, sharex=ax, sharey=ax)
+            plt.title("3.(C) Max Filtered == Spectrogram")
+            # plot_spectrogram(Sxx, f, t)
+            plot_grid_of_filter_size(max_filter_size)
+            plot_spectrogram_peaks(peak_locations, f, t)
+            plt.xlim(0, 500)
+            plt.ylim(0, 512)
+            plt.show()
         fingerprints = get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step)
 
         query_database = True
         if query_database:
-            ax = plt.subplot(2, 1, 1)
+            # ax = plt.subplot(2, 1, 1)
             # TODO multiple matching songs
             print("querying database")
             viridis = cm.get_cmap('viridis', len(fingerprints)).colors
@@ -120,17 +121,27 @@ def main():
 
                     stk = db_fp_offset - local_fp_offset
                     stks.append(stk)
-
+            plt.show()
             df_fingerprint_matches = pd.DataFrame({
                 "songID": db_fp_song_ids,
                 "stk": stks
             })
-            df_fingerprint_matches.sort_values(by='songID', inplace=True)
-            plt.grid()
-            plt.subplot(2, 1, 2)
-
-            plt.hist(stks, bins=20, rwidth=.9)
+            df_fingerprint_matches.set_index('songID', inplace=True)
+            index_set = set(df_fingerprint_matches.index)
+            n_subplots = len(index_set)
+            ax = plt.subplot(n_subplots, 1, 1)
+            for i, song_id in enumerate(index_set):
+                if i > 0:
+                    plt.subplot(n_subplots, 1, i + 1, sharey=ax)
+                plt.title("song_id:" + str(song_id))
+                stks_in_songID = df_fingerprint_matches.loc[song_id]
+                plt.hist(stks_in_songID.values, bins=20, rwidth=.9)
             plt.show()
+            # df_fingerprint_matches.sort_values(by='songID', inplace=True)
+            # plt.grid()
+            # plt.subplot(2, 1, 2)
+
+            # plt.hist(stks, bins=20, rwidth=.9)
 
         insert_into_database = False
         if insert_into_database:
