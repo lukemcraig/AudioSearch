@@ -80,8 +80,9 @@ def main():
         plt.show()
         fingerprints = get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step)
 
-        query_database = False
+        query_database = True
         if query_database:
+            ax = plt.subplot(2, 1, 1)
             # TODO multiple matching songs
             print("querying database")
             viridis = cm.get_cmap('viridis', len(fingerprints)).colors
@@ -92,16 +93,18 @@ def main():
                     print(db_fp['songID'])
                     db_fp_offset = db_fp['offset']
                     local_fp_offset = fingerprint['offset']
-                    # plt.scatter(db_fp_offset, local_fp_offset, c=viridis[color_index])
+                    plt.scatter(db_fp_offset, local_fp_offset, c=viridis[color_index])
+                    plt.text(db_fp_offset, local_fp_offset, db_fp['songID'])
+
                     stk = db_fp_offset - local_fp_offset
                     stks.append(stk)
-            # plt.grid()
-            # plt.show()
-            #
-            # plt.hist(stks)
-            # plt.show()
+            plt.grid()
+            plt.subplot(2, 1, 2)
 
-        insert_into_database = True
+            plt.hist(stks, bins=20, rwidth=.9)
+            plt.show()
+
+        insert_into_database = False
         if insert_into_database:
             print("querying song in database")
             song = {'artist': metadata['artist'], 'album': metadata['album'], 'title': metadata['title'],
