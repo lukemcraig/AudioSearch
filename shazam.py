@@ -29,6 +29,12 @@ def main():
         if filepath[-4:] != '.mp3':
             continue
         data, rate, metadata = load_audio_data(directory + filepath)
+
+        subset_length = np.random.randint(rate * 5, rate * 14)
+        subset_length = min(len(data), subset_length)
+        random_start_time = np.random.randint(0, len(data) - subset_length)
+        data = data[random_start_time:random_start_time + subset_length]
+
         # data = crop_audio_time(data, rate)
 
         # data, rate = downsample_audio(data, rate)
@@ -87,17 +93,39 @@ def main():
             print("querying database")
             viridis = cm.get_cmap('viridis', len(fingerprints)).colors
             stks = []
+            db_fp_song_ids = []
+            db_fp_offsets = []
+            local_fp_offsets = []
+            # df_local_fingerprints = pd.DataFrame(fingerprints)
+            # hashes = df_local_fingerprints['hash']
+            # cursor = fingerprints_collection.find({'hash': {'$in': list(hashes)}}, projection={"_id": 0, "hash": 0})
+            # cursor_listed = list(cursor)
+            # df_fingerprint_matches = pd.DataFrame(cursor_listed)
             for color_index, fingerprint in enumerate(fingerprints):
-                cursor = fingerprints_collection.find({'hash': fingerprint['hash']})
+                cursor = fingerprints_collection.find({'hash': fingerprint['hash']}, projection={"_id": 0, "hash": 0})
+                # cursor_listed = list(cursor)
+                # df_fingerprint_matches = pd.DataFrame(cursor_listed)
                 for db_fp in cursor:
-                    print(db_fp['songID'])
+                    db_fp_song_id = db_fp['songID']
+                    db_fp_song_ids.append(db_fp_song_id)
+                    print(db_fp_song_id)
                     db_fp_offset = db_fp['offset']
+                    db_fp_offsets.append(db_fp_offset)
+
                     local_fp_offset = fingerprint['offset']
+                    local_fp_offsets.append(local_fp_offset)
+
                     plt.scatter(db_fp_offset, local_fp_offset, c=viridis[color_index])
-                    plt.text(db_fp_offset, local_fp_offset, db_fp['songID'])
+                    plt.text(db_fp_offset, local_fp_offset, db_fp_song_id)
 
                     stk = db_fp_offset - local_fp_offset
                     stks.append(stk)
+
+            df_fingerprint_matches = pd.DataFrame({
+                "songID": db_fp_song_ids,
+                "stk": stks
+            })
+            df_fingerprint_matches.sort_values(by='songID', inplace=True)
             plt.grid()
             plt.subplot(2, 1, 2)
 
