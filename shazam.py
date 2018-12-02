@@ -32,176 +32,182 @@ def main(query_database=True, insert_into_database=False, do_plotting=False):
         data, rate, metadata = load_audio_data(directory + filepath)
 
         if query_database:
-            # subset_length = np.random.randint(rate * 5, rate * 14)
-            subset_length = 112000
-            subset_length = min(len(data), subset_length)
-            random_start_time = np.random.randint(0, len(data) - subset_length)
-            data = data[random_start_time:random_start_time + subset_length]
-            # SNR
-            data = add_noise(data)
-            pass
+            data = get_test_subset(data)
+            data = add_noise(data, desired_snr_dbfs=15)
 
-        # data = crop_audio_time(data, rate)
-
-        # data, rate = downsample_audio(data, rate)
-
-        Sxx, f, t = get_spectrogram(data, rate)
-
-        if do_plotting:
-            # plt.style.use('ggplot')
-            ax = plt.subplot(2, 3, 1)
-            plt.title("1. Spectrogram")
-            plot_spectrogram(Sxx, f, t)
-
-        f_step = np.median(f[1:-1] - f[:-2])
-        t_step = np.median(t[1:-1] - t[:-2])
-        peak_locations, max_filter, max_filter_size = find_spectrogram_peaks(Sxx, t_step)
-
-        if do_plotting:
-            plt.subplot(2, 3, 2, sharex=ax, sharey=ax)
-            plt.title("2. Max Filtered")
-            plot_grid_of_filter_size(max_filter_size)
-            plot_spectrogram(max_filter, f, t)
-            # rect = patches.Rectangle((0, 0), max_filter_size[1] * t_step, max_filter_size[0] * f_step, edgecolor="black")
-            # plt.gca().add_patch(rect)
-            # ylim = plt.ylim()
-            # xlim = plt.xlim()
-            # for i in range(23):
-            #     plt.axvline(x=max_filter_size[0] * t_step * i)
-            # for i in range(9):
-            #     plt.axhline(y=max_filter_size[1] * f_step * i)
-            # plt.ylim(ylim)
-            # plt.xlim(xlim)
-
-            plt.subplot(2, 3, 3, sharex=ax, sharey=ax)
-            plt.title("3.(A) Max Filtered == Spectrogram")
-            plot_spectrogram(max_filter, f, t)
-            plot_grid_of_filter_size(max_filter_size)
-            plot_spectrogram_peaks(peak_locations, f, t)
-
-            plt.subplot(2, 3, 4, sharex=ax, sharey=ax)
-            plt.title("3.(B) Max Filtered == Spectrogram")
-            plot_spectrogram(Sxx, f, t)
-            plot_grid_of_filter_size(max_filter_size)
-            plot_spectrogram_peaks(peak_locations, f, t)
-
-            plt.subplot(2, 3, 5, sharex=ax, sharey=ax)
-            plt.title("3.(C) Max Filtered == Spectrogram")
-            # plot_spectrogram(Sxx, f, t)
-            plot_grid_of_filter_size(max_filter_size)
-            plot_spectrogram_peaks(peak_locations, f, t)
-            plt.xlim(0, 500)
-            plt.ylim(0, 512)
-            plt.show()
-
-        fingerprints = get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step)
+        fingerprints = get_fingerprints_from_audio(data, rate, do_plotting)
 
         if insert_into_database:
-            print("querying song in database")
-            song = {'artist': metadata['artist'], 'album': metadata['album'], 'title': metadata['title'],
-                    'length': metadata['track_length_s']}
-            song_doc = songs_collection.find_one(song)
-            if song_doc is None:
-                print("inserting song into database")
-                most_recent_song = songs_collection.find_one({}, sort=[(u"_id", -1)])
-                if most_recent_song is not None:
-                    new_id = most_recent_song['_id'] + 1
-                else:
-                    new_id = 0
-                song['_id'] = new_id
-                insert_song_result = songs_collection.insert_one(song)
-                song_doc = songs_collection.find_one({"_id": insert_song_result.inserted_id})
-            print("inserting fingerprints into database")
-            for fingerprint in fingerprints:
-                fingerprint['songID'] = song_doc['_id']
-                try:
-                    fingerprints_collection.insert_one(fingerprint)
-                except pymongo.errors.DuplicateKeyError:
-                    continue
+            insert_one_song_into_database(metadata, fingerprints, fingerprints_collection, songs_collection)
 
         if query_database:
-            print("querying song in database")
-            song = {'artist': metadata['artist'], 'album': metadata['album'], 'title': metadata['title'],
-                    'length': metadata['track_length_s']}
-            song_doc = songs_collection.find_one(song)
-            if song_doc is None:
-                raise Exception(filepath + "needs to be inserted into the DB first!")
-
-            # ax = plt.subplot(2, 1, 1)
-            # TODO multiple matching songs
-            print("querying database")
-            if do_plotting:
-                viridis = cm.get_cmap('viridis', len(fingerprints)).colors
-
-            stks = []
-            db_fp_song_ids = []
-            db_fp_offsets = []
-            local_fp_offsets = []
-
-            for color_index, fingerprint in enumerate(fingerprints):
-                cursor = fingerprints_collection.find({'hash': fingerprint['hash']}, projection={"_id": 0, "hash": 0})
-                # cursor_listed = list(cursor)
-                # df_fingerprint_matches = pd.DataFrame(cursor_listed)
-                for db_fp in cursor:
-                    db_fp_song_id = db_fp['songID']
-                    db_fp_song_ids.append(db_fp_song_id)
-                    # print(db_fp_song_id)
-                    db_fp_offset = db_fp['offset']
-                    db_fp_offsets.append(db_fp_offset)
-
-                    local_fp_offset = fingerprint['offset']
-                    local_fp_offsets.append(local_fp_offset)
-
-                    if do_plotting:
-                        plt.scatter(db_fp_offset, local_fp_offset, c=viridis[color_index])
-                        plt.text(db_fp_offset, local_fp_offset, db_fp_song_id)
-
-                    stk = db_fp_offset - local_fp_offset
-                    stks.append(stk)
-            if do_plotting:
-                plt.show()
-            df_fingerprint_matches = pd.DataFrame({
-                "songID": db_fp_song_ids,
-                "stk": stks
-            })
-            df_fingerprint_matches.set_index('songID', inplace=True)
-            index_set = set(df_fingerprint_matches.index)
-
-            n_subplots = len(index_set)
-            ax = plt.subplot(n_subplots, 1, 1)
-
-            max_hist_peak = 0
-            max_hist_song = None
-            for i, song_id in enumerate(index_set):
-                if i > 0:
-                    plt.subplot(n_subplots, 1, i + 1, sharey=ax)
-                plt.title("song_id:" + str(song_id))
-                stks_in_songID = df_fingerprint_matches.loc[song_id]
-                # TODO clustering histogram?
-                # unique, unique_counts = np.unique(stks_in_songID.values, return_counts=True)
-                hist, bin_edges = np.histogram(stks_in_songID.values, bins='auto')
-                if max(hist) > max_hist_peak:
-                    max_hist_peak = max(hist)
-                    max_hist_song = song_id
-                if do_plotting:
-                    hist_mpl, bin_edges_mpl, patches = plt.hist(stks_in_songID.values, bins='auto', rwidth=.9)
-                    # plt.bar(unique, unique_counts)
-            correct_match = max_hist_song == song_doc['_id']
-            print("correct_match=", correct_match)
-            if do_plotting:
-                plt.suptitle("matching song id=" + str(max_hist_song) + ",correct song=" + str(song_doc['_id']))
-                plt.tight_layout()
-                plt.show()
+            try_to_match_clip_to_database(do_plotting, filepath, fingerprints, fingerprints_collection,
+                                          metadata, songs_collection)
     return
 
 
-def add_noise(data):
+def get_fingerprints_from_audio(data, rate, do_plotting):
+    Sxx, f, t = get_spectrogram(data, rate)
+    f_step = np.median(f[1:-1] - f[:-2])
+    t_step = np.median(t[1:-1] - t[:-2])
+    peak_locations, max_filter, max_filter_size = find_spectrogram_peaks(Sxx, t_step)
+    if do_plotting:
+        plot_spectrogram_and_peak_subplots(Sxx, f, max_filter, max_filter_size, peak_locations, t)
+    fingerprints = get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step)
+    return fingerprints
+
+
+def plot_spectrogram_and_peak_subplots(Sxx, f, max_filter, max_filter_size, peak_locations, t):
+    ax = plt.subplot(2, 3, 1)
+    plt.title("1. Spectrogram")
+    plot_spectrogram(Sxx, f, t)
+    plt.subplot(2, 3, 2, sharex=ax, sharey=ax)
+    plt.title("2. Max Filtered")
+    plot_grid_of_filter_size(max_filter_size)
+    plot_spectrogram(max_filter, f, t)
+    # rect = patches.Rectangle((0, 0), max_filter_size[1] * t_step, max_filter_size[0] * f_step, edgecolor="black")
+    # plt.gca().add_patch(rect)
+    # ylim = plt.ylim()
+    # xlim = plt.xlim()
+    # for i in range(23):
+    #     plt.axvline(x=max_filter_size[0] * t_step * i)
+    # for i in range(9):
+    #     plt.axhline(y=max_filter_size[1] * f_step * i)
+    # plt.ylim(ylim)
+    # plt.xlim(xlim)
+    plt.subplot(2, 3, 3, sharex=ax, sharey=ax)
+    plt.title("3.(A) Max Filtered == Spectrogram")
+    plot_spectrogram(max_filter, f, t)
+    plot_grid_of_filter_size(max_filter_size)
+    plot_spectrogram_peaks(peak_locations, f, t)
+    plt.subplot(2, 3, 4, sharex=ax, sharey=ax)
+    plt.title("3.(B) Max Filtered == Spectrogram")
+    plot_spectrogram(Sxx, f, t)
+    plot_grid_of_filter_size(max_filter_size)
+    plot_spectrogram_peaks(peak_locations, f, t)
+    plt.subplot(2, 3, 5, sharex=ax, sharey=ax)
+    plt.title("3.(C) Max Filtered == Spectrogram")
+    # plot_spectrogram(Sxx, f, t)
+    plot_grid_of_filter_size(max_filter_size)
+    plot_spectrogram_peaks(peak_locations, f, t)
+    plt.xlim(0, 500)
+    plt.ylim(0, 512)
+    plt.show()
+    return
+
+
+def try_to_match_clip_to_database(do_plotting, filepath, fingerprints, fingerprints_collection, metadata,
+                                  songs_collection):
+    print("querying song in database")
+    song = {'artist': metadata['artist'], 'album': metadata['album'], 'title': metadata['title'],
+            'length': metadata['track_length_s']}
+    song_doc = songs_collection.find_one(song)
+    if song_doc is None:
+        raise Exception(filepath + "needs to be inserted into the DB first!")
+    # ax = plt.subplot(2, 1, 1)
+    # TODO multiple matching songs
+    print("querying database")
+    if do_plotting:
+        viridis = cm.get_cmap('viridis', len(fingerprints)).colors
+    stks = []
+    db_fp_song_ids = []
+    db_fp_offsets = []
+    local_fp_offsets = []
+    for color_index, fingerprint in enumerate(fingerprints):
+        cursor = fingerprints_collection.find({'hash': fingerprint['hash']}, projection={"_id": 0, "hash": 0})
+        # cursor_listed = list(cursor)
+        # df_fingerprint_matches = pd.DataFrame(cursor_listed)
+        for db_fp in cursor:
+            db_fp_song_id = db_fp['songID']
+            db_fp_song_ids.append(db_fp_song_id)
+            # print(db_fp_song_id)
+            db_fp_offset = db_fp['offset']
+            db_fp_offsets.append(db_fp_offset)
+
+            local_fp_offset = fingerprint['offset']
+            local_fp_offsets.append(local_fp_offset)
+
+            if do_plotting:
+                plt.scatter(db_fp_offset, local_fp_offset, c=viridis[color_index])
+                plt.text(db_fp_offset, local_fp_offset, db_fp_song_id)
+
+            stk = db_fp_offset - local_fp_offset
+            stks.append(stk)
+    if do_plotting:
+        plt.show()
+    df_fingerprint_matches = pd.DataFrame({
+        "songID": db_fp_song_ids,
+        "stk": stks
+    })
+    df_fingerprint_matches.set_index('songID', inplace=True)
+    index_set = set(df_fingerprint_matches.index)
+    n_subplots = len(index_set)
+    ax = plt.subplot(n_subplots, 1, 1)
+    max_hist_peak = 0
+    max_hist_song = None
+    for i, song_id in enumerate(index_set):
+        if i > 0:
+            plt.subplot(n_subplots, 1, i + 1, sharey=ax)
+        plt.title("song_id:" + str(song_id))
+        stks_in_songID = df_fingerprint_matches.loc[song_id]
+        # TODO clustering histogram?
+        # unique, unique_counts = np.unique(stks_in_songID.values, return_counts=True)
+        hist, bin_edges = np.histogram(stks_in_songID.values, bins='auto')
+        if max(hist) > max_hist_peak:
+            max_hist_peak = max(hist)
+            max_hist_song = song_id
+        if do_plotting:
+            hist_mpl, bin_edges_mpl, patches = plt.hist(stks_in_songID.values, bins='auto', rwidth=.9)
+            # plt.bar(unique, unique_counts)
+    correct_match = max_hist_song == song_doc['_id']
+    print("correct_match=", correct_match)
+    if do_plotting:
+        plt.suptitle("matching song id=" + str(max_hist_song) + ",correct song=" + str(song_doc['_id']))
+        plt.tight_layout()
+        plt.show()
+    return ax
+
+
+def insert_one_song_into_database(metadata, fingerprints, fingerprints_collection, songs_collection):
+    print("querying song in database")
+    song = {'artist': metadata['artist'], 'album': metadata['album'], 'title': metadata['title'],
+            'length': metadata['track_length_s']}
+    song_doc = songs_collection.find_one(song)
+    if song_doc is None:
+        print("inserting song into database")
+        most_recent_song = songs_collection.find_one({}, sort=[(u"_id", -1)])
+        if most_recent_song is not None:
+            new_id = most_recent_song['_id'] + 1
+        else:
+            new_id = 0
+        song['_id'] = new_id
+        insert_song_result = songs_collection.insert_one(song)
+        song_doc = songs_collection.find_one({"_id": insert_song_result.inserted_id})
+    print("inserting fingerprints into database")
+    for fingerprint in fingerprints:
+        fingerprint['songID'] = song_doc['_id']
+        try:
+            fingerprints_collection.insert_one(fingerprint)
+        except pymongo.errors.DuplicateKeyError:
+            continue
+
+
+def get_test_subset(data):
+    # subset_length = np.random.randint(rate * 5, rate * 14)
+    subset_length = 112000
+    subset_length = min(len(data), subset_length)
+    random_start_time = np.random.randint(0, len(data) - subset_length)
+    data = data[random_start_time:random_start_time + subset_length]
+    return data
+
+
+def add_noise(data, desired_snr_dbfs):
     # TODO real noise audio
     white_noise = (np.random.random(len(data)) * 2) - 1
     rms_signal = get_rms_linear(data)
     rms_noise = get_rms_linear(white_noise)
     snr = rms_signal / rms_noise
-    desired_nsr_dbfs = -15
+    desired_nsr_dbfs = -desired_snr_dbfs
     desired_nsr_linear = dbfs_to_linear(desired_nsr_dbfs)
     white_noise_adjusted = white_noise * snr * desired_nsr_linear
     data += white_noise_adjusted
