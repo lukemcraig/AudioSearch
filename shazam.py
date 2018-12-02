@@ -240,10 +240,6 @@ def combine_parts_into_key(peak_f, second_peak_f, time_delta):
     first_part = peak_f << 20
     second_part = second_peak_f << 10
     combined_key = first_part + second_part + time_delta
-    d_pf, d_spf, d_td = decode_hash(combined_key)
-    assert d_pf == peak_f
-    assert d_spf == second_peak_f
-    assert d_td == time_delta
     return combined_key
 
 
@@ -255,9 +251,6 @@ def decode_hash(key):
     # shift 20 bits
     peak_f = key >> 20
     return peak_f, second_peak_f, time_delta
-
-
-# combine_parts_into_key(3, 7, 11)
 
 
 def plot_spectrogram_peaks(peak_locations, f, t):
