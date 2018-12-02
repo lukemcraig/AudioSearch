@@ -20,29 +20,40 @@ import pymongo
 import librosa
 
 
-def main(query_database=True, insert_into_database=False, do_plotting=False):
+def main(insert_into_database=False, do_plotting=False):
+    query_database = not insert_into_database
+
     client = get_client()
     fingerprints_collection = client.audioprintsDB.fingerprints
     songs_collection = client.audioprintsDB.songs
     directory = 'C:/Users\Luke\Downloads/Disasterpeace/'
+    mp3_filepaths = []
     for filepath in os.listdir(directory):
         if filepath[-4:] != '.mp3':
             continue
-        print(filepath)
-        data, rate, metadata = load_audio_data(directory + filepath)
+        mp3_filepaths.append(filepath)
+
+    snrs_to_test = [15, 12, 9, 6, 3, 0, -3, -9, -12, -15]
+    performance_results = np.zeros((len(mp3_filepaths), len(snrs_to_test)), dtype=bool)
+    for mp3_i, mp3_filepath in enumerate(mp3_filepaths):
+        print(mp3_filepath)
+        data, rate, metadata = load_audio_data(directory + mp3_filepath)
 
         if query_database:
             data = get_test_subset(data)
-            data = add_noise(data, desired_snr_dbfs=15)
 
-        fingerprints = get_fingerprints_from_audio(data, rate, do_plotting)
+            for snr_i, snr_dbfs in enumerate(snrs_to_test):
+                data_and_noise = add_noise(data, desired_snr_dbfs=snr_dbfs)
+                fingerprints = get_fingerprints_from_audio(data_and_noise, rate, do_plotting)
+                correct_match = try_to_match_clip_to_database(do_plotting, mp3_filepath, fingerprints,
+                                                              fingerprints_collection,
+                                                              metadata, songs_collection)
+                performance_results[mp3_i, snr_i] = correct_match
 
-        if insert_into_database:
+        elif insert_into_database:
+            fingerprints = get_fingerprints_from_audio(data, rate, do_plotting)
             insert_one_song_into_database(metadata, fingerprints, fingerprints_collection, songs_collection)
 
-        if query_database:
-            try_to_match_clip_to_database(do_plotting, filepath, fingerprints, fingerprints_collection,
-                                          metadata, songs_collection)
     return
 
 
@@ -141,13 +152,15 @@ def try_to_match_clip_to_database(do_plotting, filepath, fingerprints, fingerpri
     })
     df_fingerprint_matches.set_index('songID', inplace=True)
     index_set = set(df_fingerprint_matches.index)
-    n_subplots = len(index_set)
-    ax = plt.subplot(n_subplots, 1, 1)
+    n_possible_songs = len(index_set)
+    if n_possible_songs == 0:
+        return False
+    ax = plt.subplot(n_possible_songs, 1, 1)
     max_hist_peak = 0
     max_hist_song = None
     for i, song_id in enumerate(index_set):
         if i > 0:
-            plt.subplot(n_subplots, 1, i + 1, sharey=ax)
+            plt.subplot(n_possible_songs, 1, i + 1, sharey=ax)
         plt.title("song_id:" + str(song_id))
         stks_in_songID = df_fingerprint_matches.loc[song_id]
         # TODO clustering histogram?
@@ -165,7 +178,7 @@ def try_to_match_clip_to_database(do_plotting, filepath, fingerprints, fingerpri
         plt.suptitle("matching song id=" + str(max_hist_song) + ",correct song=" + str(song_doc['_id']))
         plt.tight_layout()
         plt.show()
-    return ax
+    return correct_match
 
 
 def insert_one_song_into_database(metadata, fingerprints, fingerprints_collection, songs_collection):
