@@ -147,7 +147,7 @@ def main(query_database=True, insert_into_database=False, do_plotting=False):
                 for db_fp in cursor:
                     db_fp_song_id = db_fp['songID']
                     db_fp_song_ids.append(db_fp_song_id)
-                    print(db_fp_song_id)
+                    # print(db_fp_song_id)
                     db_fp_offset = db_fp['offset']
                     db_fp_offsets.append(db_fp_offset)
 
@@ -179,25 +179,21 @@ def main(query_database=True, insert_into_database=False, do_plotting=False):
                     plt.subplot(n_subplots, 1, i + 1, sharey=ax)
                 plt.title("song_id:" + str(song_id))
                 stks_in_songID = df_fingerprint_matches.loc[song_id]
+                # TODO clustering histogram?
+                # unique, unique_counts = np.unique(stks_in_songID.values, return_counts=True)
                 hist, bin_edges = np.histogram(stks_in_songID.values, bins='auto')
                 if max(hist) > max_hist_peak:
                     max_hist_peak = max(hist)
                     max_hist_song = song_id
-                hist_mpl, bin_edges_mpl, patches = plt.hist(stks_in_songID.values, bins='auto', rwidth=.9)
-                # TODO clustering histogram?
-                # unique, unique_counts = np.unique(stks_in_songID.values, return_counts=True)
-                # plt.bar(unique, unique_counts)
-            plt.suptitle("matching song id=" + str(max_hist_song) + ",correct song=")
-            plt.show()
-            # df_fingerprint_matches.sort_values(by='songID', inplace=True)
-            # plt.grid()
-            # plt.subplot(2, 1, 2)
-
-            # plt.hist(stks, bins=20, rwidth=.9)
-
-        # plt.ylim(0, 4000)
-        # plt.xlim(0, 14)
-        # plt.show()
+                if do_plotting:
+                    hist_mpl, bin_edges_mpl, patches = plt.hist(stks_in_songID.values, bins='auto', rwidth=.9)
+                    # plt.bar(unique, unique_counts)
+            correct_match = max_hist_song == song_doc['_id']
+            print("correct_match=", correct_match)
+            if do_plotting:
+                plt.suptitle("matching song id=" + str(max_hist_song) + ",correct song=" + str(song_doc['_id']))
+                plt.tight_layout()
+                plt.show()
     return
 
 
