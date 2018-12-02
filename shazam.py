@@ -272,8 +272,9 @@ def get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step):
     # sweep line + bst
     # df_peak_locations.sort_values(by='t', ascending=False)
     fingerprints = []
+    print("/", len(df_peak_locations))
     for i, anchor in df_peak_locations.iterrows():
-        print(i, "/", len(df_peak_locations))
+        print(i, end=", ")
         anchor_t = anchor['t']
         anchor_f = anchor['f']
 
@@ -293,7 +294,7 @@ def get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step):
         paired_df_peak_locations = df_peak_locations[zone_index]
 
         for j, second_peak in paired_df_peak_locations.iterrows():
-            print("    ", j, "/", n_pairs)
+            # print("    ", j, "/", n_pairs)
             second_peak_f = second_peak['f']
             time_delta = second_peak['t'] - anchor_t
             combined_key = combine_parts_into_key(anchor_f, second_peak_f, time_delta)
@@ -301,6 +302,7 @@ def get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step):
             fingerprint = {'hash': int(combined_key), 'offset': int(anchor_t)}
             fingerprints.append(fingerprint)
     # df_fingerprints = pd.DataFrame(fingerprints)
+    print()
     return fingerprints
 
 
