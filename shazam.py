@@ -44,15 +44,18 @@ def main():
 
         Sxx, f, t = get_spectrogram(data, rate)
 
-        # plt.style.use('ggplot')
-        if True:
+        do_plotting = True
+        if do_plotting:
+            # plt.style.use('ggplot')
             ax = plt.subplot(2, 3, 1)
             plt.title("1. Spectrogram")
             plot_spectrogram(Sxx, f, t)
+
         f_step = np.median(f[1:-1] - f[:-2])
         t_step = np.median(t[1:-1] - t[:-2])
         peak_locations, max_filter, max_filter_size = find_spectrogram_peaks(Sxx, t_step)
-        if True:
+
+        if do_plotting:
             plt.subplot(2, 3, 2, sharex=ax, sharey=ax)
             plt.title("2. Max Filtered")
             plot_grid_of_filter_size(max_filter_size)
@@ -88,23 +91,22 @@ def main():
             plt.xlim(0, 500)
             plt.ylim(0, 512)
             plt.show()
+
         fingerprints = get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step)
 
-        query_database = True
+        query_database = False
         if query_database:
             # ax = plt.subplot(2, 1, 1)
             # TODO multiple matching songs
             print("querying database")
-            viridis = cm.get_cmap('viridis', len(fingerprints)).colors
+            if do_plotting:
+                viridis = cm.get_cmap('viridis', len(fingerprints)).colors
+
             stks = []
             db_fp_song_ids = []
             db_fp_offsets = []
             local_fp_offsets = []
-            # df_local_fingerprints = pd.DataFrame(fingerprints)
-            # hashes = df_local_fingerprints['hash']
-            # cursor = fingerprints_collection.find({'hash': {'$in': list(hashes)}}, projection={"_id": 0, "hash": 0})
-            # cursor_listed = list(cursor)
-            # df_fingerprint_matches = pd.DataFrame(cursor_listed)
+
             for color_index, fingerprint in enumerate(fingerprints):
                 cursor = fingerprints_collection.find({'hash': fingerprint['hash']}, projection={"_id": 0, "hash": 0})
                 # cursor_listed = list(cursor)
@@ -119,12 +121,14 @@ def main():
                     local_fp_offset = fingerprint['offset']
                     local_fp_offsets.append(local_fp_offset)
 
-                    plt.scatter(db_fp_offset, local_fp_offset, c=viridis[color_index])
-                    plt.text(db_fp_offset, local_fp_offset, db_fp_song_id)
+                    if do_plotting:
+                        plt.scatter(db_fp_offset, local_fp_offset, c=viridis[color_index])
+                        plt.text(db_fp_offset, local_fp_offset, db_fp_song_id)
 
                     stk = db_fp_offset - local_fp_offset
                     stks.append(stk)
-            plt.show()
+            if do_plotting:
+                plt.show()
             df_fingerprint_matches = pd.DataFrame({
                 "songID": db_fp_song_ids,
                 "stk": stks
@@ -146,7 +150,7 @@ def main():
 
             # plt.hist(stks, bins=20, rwidth=.9)
 
-        insert_into_database = False
+        insert_into_database = True
         if insert_into_database:
             print("querying song in database")
             song = {'artist': metadata['artist'], 'album': metadata['album'], 'title': metadata['title'],
@@ -244,7 +248,7 @@ def get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step):
     fan_out_factor = 10
     zone_f_size = 1400 // f_step
     zone_t_size = 6 // t_step
-    zone_t_offset = 1.5 // t_step
+    zone_t_offset = 1
     df_peak_locations = pd.DataFrame(peak_locations, columns=['f', 't'])
     # df_peak_locations['f'] = f[df_peak_locations['f']]
     # df_peak_locations['t'] = t[df_peak_locations['t']]
@@ -264,7 +268,7 @@ def get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step):
         if zone_freq_end == len(f) - 1:
             zone_freq_start = zone_freq_end - zone_f_size
 
-        # TODO better way to check the zone
+        # TODO better way to check the zone (sweep line)
         time_index = (df_peak_locations['t'] <= zone_time_end) & (df_peak_locations['t'] >= zone_time_start)
         freq_index = (zone_freq_start <= df_peak_locations['f']) & (df_peak_locations['f'] <= zone_freq_end)
         zone_index = time_index & freq_index
