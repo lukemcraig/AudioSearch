@@ -176,11 +176,66 @@ def main():
     return
 
 
-def plot_grid_of_filter_size(max_filter_size):
-    plt.gca().xaxis.set_major_locator(plticker.MultipleLocator(base=max_filter_size[0]))
-    plt.gca().yaxis.set_major_locator(plticker.MultipleLocator(base=max_filter_size[1]))
-    plt.grid(True, color='Black')
-    return
+def get_client():
+    print("getting client...")
+    client = pymongo.MongoClient('mongodb://localhost:27017', serverSelectionTimeoutMS=3)
+    client.server_info()
+    print("got client")
+    return client
+
+
+def load_audio_data(filepath):
+    print("loading audio")
+    data, rate = librosa.load(filepath, mono=True, sr=8000)
+    assert rate == 8000
+    mp3tags = EasyID3(filepath)
+    metadata = {
+        "artist": mp3tags['artist'][0],
+        "album": mp3tags['album'][0],
+        "title": mp3tags['title'][0],
+        "track_length_s": len(data) / rate
+    }
+    return data, rate, metadata
+
+
+def downsample_audio(data, rate):
+    print("downsampling audio")
+    downsampled_rate = 8000
+    data = resampy.resample(data, rate, downsampled_rate)
+    rate = downsampled_rate
+    return data, rate
+
+
+def crop_audio_time(data, rate):
+    print("cropping audio")
+    data = data[:rate * 14]
+    return data
+
+
+def get_spectrogram(data, rate):
+    print('get_spectrogram')
+    nperseg = 1024
+    noverlap = int(np.round(nperseg / 1.5))
+    # TODO scaling?
+    f, t, Sxx = scipy.signal.spectrogram(data, fs=rate, scaling='spectrum',
+                                         mode='magnitude',
+                                         window='hann',
+                                         nperseg=nperseg,
+                                         noverlap=noverlap)
+    return Sxx, f, t
+
+
+def find_spectrogram_peaks(Sxx, t_step, f_size_hz=500, t_size_sec=2):
+    print('find_spectrogram_peaks')
+    max_f = 4000
+    f_bins = Sxx.shape[0]
+    f_per_bin = max_f / f_bins
+    f_size = int(np.round(f_size_hz / f_per_bin))
+    t_size = int(np.round(t_size_sec / t_step))
+
+    max_filter = scipy.ndimage.filters.maximum_filter(Sxx, size=(f_size, t_size), mode='constant')
+    peak_locations = np.argwhere(Sxx == max_filter)
+    return peak_locations, max_filter, (t_size, f_size)
 
 
 def get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step):
@@ -228,14 +283,6 @@ def get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step):
     return fingerprints
 
 
-def get_client():
-    print("getting client...")
-    client = pymongo.MongoClient('mongodb://localhost:27017', serverSelectionTimeoutMS=3)
-    client.server_info()
-    print("got client")
-    return client
-
-
 def combine_parts_into_key(peak_f, second_peak_f, time_delta):
     peak_f = np.uint32(peak_f)
     second_peak_f = np.uint32(second_peak_f)
@@ -263,19 +310,6 @@ def plot_spectrogram_peaks(peak_locations, f, t):
     return
 
 
-def find_spectrogram_peaks(Sxx, t_step, f_size_hz=500, t_size_sec=2):
-    print('find_spectrogram_peaks')
-    max_f = 4000
-    f_bins = Sxx.shape[0]
-    f_per_bin = max_f / f_bins
-    f_size = int(np.round(f_size_hz / f_per_bin))
-    t_size = int(np.round(t_size_sec / t_step))
-
-    max_filter = scipy.ndimage.filters.maximum_filter(Sxx, size=(f_size, t_size), mode='constant')
-    peak_locations = np.argwhere(Sxx == max_filter)
-    return peak_locations, max_filter, (t_size, f_size)
-
-
 def plot_spectrogram(Sxx, f, t, alpha=1.0):
     color_norm = colors.LogNorm(vmin=1 / (2 ** 20), vmax=1)
     # color_norm = colors.LogNorm(vmin=Sxx.min(), vmax=Sxx.max())
@@ -297,45 +331,11 @@ def plot_spectrogram(Sxx, f, t, alpha=1.0):
     return
 
 
-def get_spectrogram(data, rate):
-    print('get_spectrogram')
-    nperseg = 1024
-    noverlap = int(np.round(nperseg / 1.5))
-    # TODO scaling?
-    f, t, Sxx = scipy.signal.spectrogram(data, fs=rate, scaling='spectrum',
-                                         mode='magnitude',
-                                         window='hann',
-                                         nperseg=nperseg,
-                                         noverlap=noverlap)
-    return Sxx, f, t
-
-
-def crop_audio_time(data, rate):
-    print("cropping audio")
-    data = data[:rate * 14]
-    return data
-
-
-def downsample_audio(data, rate):
-    print("downsampling audio")
-    downsampled_rate = 8000
-    data = resampy.resample(data, rate, downsampled_rate)
-    rate = downsampled_rate
-    return data, rate
-
-
-def load_audio_data(filepath):
-    print("loading audio")
-    data, rate = librosa.load(filepath, mono=True, sr=8000)
-    assert rate == 8000
-    mp3tags = EasyID3(filepath)
-    metadata = {
-        "artist": mp3tags['artist'][0],
-        "album": mp3tags['album'][0],
-        "title": mp3tags['title'][0],
-        "track_length_s": len(data) / rate
-    }
-    return data, rate, metadata
+def plot_grid_of_filter_size(max_filter_size):
+    plt.gca().xaxis.set_major_locator(plticker.MultipleLocator(base=max_filter_size[0]))
+    plt.gca().yaxis.set_major_locator(plticker.MultipleLocator(base=max_filter_size[1]))
+    plt.grid(True, color='Black')
+    return
 
 
 if __name__ == '__main__':
