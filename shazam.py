@@ -237,11 +237,27 @@ def get_client():
 
 
 def combine_parts_into_key(peak_f, second_peak_f, time_delta):
-    combined_key = peak_f << 10
-    combined_key += second_peak_f
-    combined_key <<= 10
-    combined_key += time_delta
+    first_part = peak_f << 20
+    second_part = second_peak_f << 10
+    combined_key = first_part + second_part + time_delta
+    d_pf, d_spf, d_td = decode_hash(combined_key)
+    assert d_pf == peak_f
+    assert d_spf == second_peak_f
+    assert d_td == time_delta
     return combined_key
+
+
+def decode_hash(key):
+    # only keep the 10 least significant bits
+    time_delta = key & 1023
+    # shift 10 bits and only keep the 10 least significant bits
+    second_peak_f = (key >> 10) & 1023
+    # shift 20 bits
+    peak_f = key >> 20
+    return peak_f, second_peak_f, time_delta
+
+
+# combine_parts_into_key(3, 7, 11)
 
 
 def plot_spectrogram_peaks(peak_locations, f, t):
@@ -331,4 +347,5 @@ def load_audio_data(filepath):
     return data, rate, metadata
 
 
-main()
+if __name__ == '__main__':
+    main()
