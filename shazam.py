@@ -33,8 +33,11 @@ def main(insert_into_database=False, do_plotting=False):
             continue
         mp3_filepaths.append(filepath)
 
+    # mp3_filepaths = mp3_filepaths[0:2]
+
     snrs_to_test = [15, 12, 9, 6, 3, 0, -3, -9, -12, -15]
     performance_results = np.zeros((len(mp3_filepaths), len(snrs_to_test)), dtype=bool)
+
     for mp3_i, mp3_filepath in enumerate(mp3_filepaths):
         print(mp3_filepath)
         data, rate, metadata = load_audio_data(directory + mp3_filepath)
@@ -49,11 +52,17 @@ def main(insert_into_database=False, do_plotting=False):
                                                               fingerprints_collection,
                                                               metadata, songs_collection)
                 performance_results[mp3_i, snr_i] = correct_match
+            pass
 
         elif insert_into_database:
             fingerprints = get_fingerprints_from_audio(data, rate, do_plotting)
             insert_one_song_into_database(metadata, fingerprints, fingerprints_collection, songs_collection)
 
+    if query_database:
+        recognition_rate = performance_results.mean(axis=0)
+        plt.plot(snrs_to_test, recognition_rate)
+        plt.show()
+        print()
     return
 
 
@@ -109,15 +118,14 @@ def plot_spectrogram_and_peak_subplots(Sxx, f, max_filter, max_filter_size, peak
 
 def try_to_match_clip_to_database(do_plotting, filepath, fingerprints, fingerprints_collection, metadata,
                                   songs_collection):
-    print("querying song in database")
+    # print("querying song in database")
     song = {'artist': metadata['artist'], 'album': metadata['album'], 'title': metadata['title'],
             'length': metadata['track_length_s']}
     song_doc = songs_collection.find_one(song)
     if song_doc is None:
         raise Exception(filepath + "needs to be inserted into the DB first!")
     # ax = plt.subplot(2, 1, 1)
-    # TODO multiple matching songs
-    print("querying database")
+    # print("querying database")
     if do_plotting:
         viridis = cm.get_cmap('viridis', len(fingerprints)).colors
     stks = []
@@ -155,13 +163,15 @@ def try_to_match_clip_to_database(do_plotting, filepath, fingerprints, fingerpri
     n_possible_songs = len(index_set)
     if n_possible_songs == 0:
         return False
-    ax = plt.subplot(n_possible_songs, 1, 1)
+    if do_plotting:
+        ax = plt.subplot(n_possible_songs, 1, 1)
     max_hist_peak = 0
     max_hist_song = None
     for i, song_id in enumerate(index_set):
-        if i > 0:
-            plt.subplot(n_possible_songs, 1, i + 1, sharey=ax)
-        plt.title("song_id:" + str(song_id))
+        if do_plotting:
+            if i > 0:
+                plt.subplot(n_possible_songs, 1, i + 1, sharey=ax)
+            plt.title("song_id:" + str(song_id))
         stks_in_songID = df_fingerprint_matches.loc[song_id]
         # TODO clustering histogram?
         # unique, unique_counts = np.unique(stks_in_songID.values, return_counts=True)
@@ -172,6 +182,7 @@ def try_to_match_clip_to_database(do_plotting, filepath, fingerprints, fingerpri
         if do_plotting:
             hist_mpl, bin_edges_mpl, patches = plt.hist(stks_in_songID.values, bins='auto', rwidth=.9)
             # plt.bar(unique, unique_counts)
+    # TODO false positives?
     correct_match = max_hist_song == song_doc['_id']
     print("correct_match=", correct_match)
     if do_plotting:
@@ -223,6 +234,8 @@ def add_noise(data, desired_snr_dbfs):
     desired_nsr_dbfs = -desired_snr_dbfs
     desired_nsr_linear = dbfs_to_linear(desired_nsr_dbfs)
     white_noise_adjusted = white_noise * snr * desired_nsr_linear
+    # TODO test this, it's not right:
+    actual_snr_dbfs = convert_to_dbfs(rms_signal / get_rms_linear(white_noise_adjusted))
     data += white_noise_adjusted
     return data
 
@@ -282,7 +295,7 @@ def crop_audio_time(data, rate):
 
 
 def get_spectrogram(data, rate):
-    print('get_spectrogram')
+    # print('get_spectrogram')
     nperseg = 1024
     noverlap = int(np.round(nperseg / 1.5))
     # TODO scaling?
@@ -295,7 +308,7 @@ def get_spectrogram(data, rate):
 
 
 def find_spectrogram_peaks(Sxx, t_step, f_size_hz=500, t_size_sec=2):
-    print('find_spectrogram_peaks')
+    # print('find_spectrogram_peaks')
     max_f = 4000
     f_bins = Sxx.shape[0]
     f_per_bin = max_f / f_bins
@@ -308,7 +321,7 @@ def find_spectrogram_peaks(Sxx, t_step, f_size_hz=500, t_size_sec=2):
 
 
 def get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step):
-    print("get_fingerprints_from_peaks")
+    # print("get_fingerprints_from_peaks")
     # TODO fan out factor
     fan_out_factor = 10
     zone_f_size = 1400 // f_step
@@ -320,9 +333,9 @@ def get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step):
     # sweep line + bst
     # df_peak_locations.sort_values(by='t', ascending=False)
     fingerprints = []
-    print("/", len(df_peak_locations))
+    print("n_peaks=", len(df_peak_locations))
     for i, anchor in df_peak_locations.iterrows():
-        print(i, end=", ")
+        # print(i, end=", ")
         anchor_t = anchor['t']
         anchor_f = anchor['f']
 
@@ -350,7 +363,6 @@ def get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step):
             fingerprint = {'hash': int(combined_key), 'offset': int(anchor_t)}
             fingerprints.append(fingerprint)
     # df_fingerprints = pd.DataFrame(fingerprints)
-    print()
     return fingerprints
 
 
