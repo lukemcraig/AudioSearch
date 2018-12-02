@@ -20,7 +20,7 @@ import pymongo
 import librosa
 
 
-def main(query_database=False, insert_into_database=True, do_plotting=True):
+def main(query_database=True, insert_into_database=False, do_plotting=False):
     client = get_client()
     fingerprints_collection = client.audioprintsDB.fingerprints
     songs_collection = client.audioprintsDB.songs
@@ -28,17 +28,20 @@ def main(query_database=False, insert_into_database=True, do_plotting=True):
     for filepath in os.listdir(directory):
         if filepath[-4:] != '.mp3':
             continue
+        print(filepath)
         data, rate, metadata = load_audio_data(directory + filepath)
 
         if query_database:
-            subset_length = np.random.randint(rate * 5, rate * 14)
+            # subset_length = np.random.randint(rate * 5, rate * 14)
+            subset_length = 112000
             subset_length = min(len(data), subset_length)
             random_start_time = np.random.randint(0, len(data) - subset_length)
             data = data[random_start_time:random_start_time + subset_length]
-            white_noise = (np.random.random(len(data)) * 2) - 1
             # TODO SNR
-            data += (white_noise * .05)
-            data /= max(data.max(), -data.min())
+            # white_noise = (np.random.random(len(data)) * 2) - 1
+            # data += (white_noise * .05)
+            # data /= max(data.max(), -data.min())
+            pass
 
         # data = crop_audio_time(data, rate)
 
@@ -95,7 +98,37 @@ def main(query_database=False, insert_into_database=True, do_plotting=True):
 
         fingerprints = get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step)
 
+        if insert_into_database:
+            print("querying song in database")
+            song = {'artist': metadata['artist'], 'album': metadata['album'], 'title': metadata['title'],
+                    'length': metadata['track_length_s']}
+            song_doc = songs_collection.find_one(song)
+            if song_doc is None:
+                print("inserting song into database")
+                most_recent_song = songs_collection.find_one({}, sort=[(u"_id", -1)])
+                if most_recent_song is not None:
+                    new_id = most_recent_song['_id'] + 1
+                else:
+                    new_id = 0
+                song['_id'] = new_id
+                insert_song_result = songs_collection.insert_one(song)
+                song_doc = songs_collection.find_one({"_id": insert_song_result.inserted_id})
+            print("inserting fingerprints into database")
+            for fingerprint in fingerprints:
+                fingerprint['songID'] = song_doc['_id']
+                try:
+                    fingerprints_collection.insert_one(fingerprint)
+                except pymongo.errors.DuplicateKeyError:
+                    continue
+
         if query_database:
+            print("querying song in database")
+            song = {'artist': metadata['artist'], 'album': metadata['album'], 'title': metadata['title'],
+                    'length': metadata['track_length_s']}
+            song_doc = songs_collection.find_one(song)
+            if song_doc is None:
+                raise Exception(filepath + "needs to be inserted into the DB first!")
+
             # ax = plt.subplot(2, 1, 1)
             # TODO multiple matching songs
             print("querying database")
@@ -135,43 +168,32 @@ def main(query_database=False, insert_into_database=True, do_plotting=True):
             })
             df_fingerprint_matches.set_index('songID', inplace=True)
             index_set = set(df_fingerprint_matches.index)
+
             n_subplots = len(index_set)
             ax = plt.subplot(n_subplots, 1, 1)
+
+            max_hist_peak = 0
+            max_hist_song = None
             for i, song_id in enumerate(index_set):
                 if i > 0:
                     plt.subplot(n_subplots, 1, i + 1, sharey=ax)
                 plt.title("song_id:" + str(song_id))
                 stks_in_songID = df_fingerprint_matches.loc[song_id]
-                plt.hist(stks_in_songID.values, bins=20, rwidth=.9)
+                hist, bin_edges = np.histogram(stks_in_songID.values, bins='auto')
+                if max(hist) > max_hist_peak:
+                    max_hist_peak = max(hist)
+                    max_hist_song = song_id
+                hist_mpl, bin_edges_mpl, patches = plt.hist(stks_in_songID.values, bins='auto', rwidth=.9)
+                # TODO clustering histogram?
+                # unique, unique_counts = np.unique(stks_in_songID.values, return_counts=True)
+                # plt.bar(unique, unique_counts)
+            plt.suptitle("matching song id=" + str(max_hist_song) + ",correct song=")
             plt.show()
             # df_fingerprint_matches.sort_values(by='songID', inplace=True)
             # plt.grid()
             # plt.subplot(2, 1, 2)
 
             # plt.hist(stks, bins=20, rwidth=.9)
-
-        if insert_into_database:
-            print("querying song in database")
-            song = {'artist': metadata['artist'], 'album': metadata['album'], 'title': metadata['title'],
-                    'length': metadata['track_length_s']}
-            song_doc = songs_collection.find_one(song)
-            if song_doc is None:
-                print("inserting song into database")
-                most_recent_song = songs_collection.find_one({}, sort=[(u"_id", -1)])
-                if most_recent_song is not None:
-                    new_id = most_recent_song['_id'] + 1
-                else:
-                    new_id = 0
-                song['_id'] = new_id
-                insert_song_result = songs_collection.insert_one(song)
-                song_doc = songs_collection.find_one({"_id": insert_song_result.inserted_id})
-            print("inserting into database")
-            for fingerprint in fingerprints:
-                fingerprint['songID'] = song_doc['_id']
-                try:
-                    fingerprints_collection.insert_one(fingerprint)
-                except pymongo.errors.DuplicateKeyError:
-                    continue
 
         # plt.ylim(0, 4000)
         # plt.xlim(0, 14)
