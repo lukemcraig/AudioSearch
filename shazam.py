@@ -237,19 +237,23 @@ def get_client():
 
 
 def combine_parts_into_key(peak_f, second_peak_f, time_delta):
-    first_part = peak_f << 20
-    second_part = second_peak_f << 10
+    peak_f = np.uint32(peak_f)
+    second_peak_f = np.uint32(second_peak_f)
+    time_delta = np.uint32(time_delta)
+
+    first_part = np.left_shift(peak_f, np.uint32(20))
+    second_part = np.left_shift(second_peak_f, np.uint32(10))
     combined_key = first_part + second_part + time_delta
     return combined_key
 
 
 def decode_hash(key):
     # only keep the 10 least significant bits
-    time_delta = key & 1023
+    time_delta = np.bitwise_and(key, np.uint32(1023))
     # shift 10 bits and only keep the 10 least significant bits
-    second_peak_f = (key >> 10) & 1023
+    second_peak_f = np.bitwise_and(np.right_shift(key, np.uint32(10)), np.uint32(1023))
     # shift 20 bits
-    peak_f = key >> 20
+    peak_f = np.right_shift(key, np.uint32(20))
     return peak_f, second_peak_f, time_delta
 
 
@@ -329,14 +333,8 @@ def load_audio_data(filepath):
         "artist": mp3tags['artist'][0],
         "album": mp3tags['album'][0],
         "title": mp3tags['title'][0],
-        "track_length_s": len(data) / 8000
+        "track_length_s": len(data) / rate
     }
-
-    # rate, data = scipy.io.wavfile.read('C:/Users\Luke\Downloads/visitormiddle.wav')
-    # left channel. TODO mono mixdown
-    # data = data[:, 0]
-    # for 16 bit audio
-    # data = data / (2 ** 15)
     return data, rate, metadata
 
 
