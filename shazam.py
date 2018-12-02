@@ -59,8 +59,13 @@ def main(insert_into_database=False, do_plotting=False):
             insert_one_song_into_database(metadata, fingerprints, fingerprints_collection, songs_collection)
 
     if query_database:
-        recognition_rate = performance_results.mean(axis=0)
+        recognition_rate = performance_results.mean(axis=0) * 100.0
+        plt.style.use('ggplot')
         plt.plot(snrs_to_test, recognition_rate)
+        plt.xlabel('Signal to Noise Ratio (dBFS)')
+        plt.ylabel('Songs Identified')
+        # plt.gca().xaxis.set_major_formatter(plticker.FormatStrFormatter('%d dBFS'))
+        plt.gca().yaxis.set_major_formatter(plticker.FormatStrFormatter('%d %%'))
         plt.show()
         print()
     return
