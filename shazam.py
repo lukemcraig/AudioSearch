@@ -20,7 +20,7 @@ import pymongo
 import librosa
 
 
-def main():
+def main(query_database=False, insert_into_database=True, do_plotting=True):
     client = get_client()
     fingerprints_collection = client.audioprintsDB.fingerprints
     songs_collection = client.audioprintsDB.songs
@@ -30,21 +30,22 @@ def main():
             continue
         data, rate, metadata = load_audio_data(directory + filepath)
 
-        subset_length = np.random.randint(rate * 5, rate * 14)
-        subset_length = min(len(data), subset_length)
-        random_start_time = np.random.randint(0, len(data) - subset_length)
-        data = data[random_start_time:random_start_time + subset_length]
-        white_noise = (np.random.random(len(data)) * 2) - 1
-        # TODO SNR
-        data += (white_noise * .05)
-        data /= max(data.max(), -data.min())
+        if query_database:
+            subset_length = np.random.randint(rate * 5, rate * 14)
+            subset_length = min(len(data), subset_length)
+            random_start_time = np.random.randint(0, len(data) - subset_length)
+            data = data[random_start_time:random_start_time + subset_length]
+            white_noise = (np.random.random(len(data)) * 2) - 1
+            # TODO SNR
+            data += (white_noise * .05)
+            data /= max(data.max(), -data.min())
+
         # data = crop_audio_time(data, rate)
 
         # data, rate = downsample_audio(data, rate)
 
         Sxx, f, t = get_spectrogram(data, rate)
 
-        do_plotting = True
         if do_plotting:
             # plt.style.use('ggplot')
             ax = plt.subplot(2, 3, 1)
@@ -94,7 +95,6 @@ def main():
 
         fingerprints = get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step)
 
-        query_database = False
         if query_database:
             # ax = plt.subplot(2, 1, 1)
             # TODO multiple matching songs
@@ -150,7 +150,6 @@ def main():
 
             # plt.hist(stks, bins=20, rwidth=.9)
 
-        insert_into_database = True
         if insert_into_database:
             print("querying song in database")
             song = {'artist': metadata['artist'], 'album': metadata['album'], 'title': metadata['title'],
