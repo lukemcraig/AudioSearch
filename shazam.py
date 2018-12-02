@@ -37,10 +37,8 @@ def main(query_database=True, insert_into_database=False, do_plotting=False):
             subset_length = min(len(data), subset_length)
             random_start_time = np.random.randint(0, len(data) - subset_length)
             data = data[random_start_time:random_start_time + subset_length]
-            # TODO SNR
-            # white_noise = (np.random.random(len(data)) * 2) - 1
-            # data += (white_noise * .05)
-            # data /= max(data.max(), -data.min())
+            # SNR
+            data = add_noise(data)
             pass
 
         # data = crop_audio_time(data, rate)
@@ -195,6 +193,37 @@ def main(query_database=True, insert_into_database=False, do_plotting=False):
                 plt.tight_layout()
                 plt.show()
     return
+
+
+def add_noise(data):
+    # TODO real noise audio
+    white_noise = (np.random.random(len(data)) * 2) - 1
+    rms_signal = get_rms_linear(data)
+    rms_noise = get_rms_linear(white_noise)
+    snr = rms_signal / rms_noise
+    desired_nsr_dbfs = -15
+    desired_nsr_linear = dbfs_to_linear(desired_nsr_dbfs)
+    white_noise_adjusted = white_noise * snr * desired_nsr_linear
+    data += white_noise_adjusted
+    return data
+
+
+def dbfs_to_linear(snr):
+    return np.exp(snr / 20)
+
+
+def get_rms_dbfs_aes17(data):
+    rms_linear = get_rms_linear(data)
+    rms_dbfs_aes17 = convert_to_dbfs(rms_linear) + 3
+    return rms_dbfs_aes17
+
+
+def convert_to_dbfs(rms_linear):
+    return 20 * np.log10(rms_linear)
+
+
+def get_rms_linear(data):
+    return np.sqrt(np.mean(np.square(data)))
 
 
 def get_client():
