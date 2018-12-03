@@ -1,19 +1,17 @@
 import os
+import timeit
 
 import numpy as np
 import scipy.signal
 import scipy.ndimage.filters
 import scipy.ndimage.measurements
 import scipy.io.wavfile
-from mutagen.easyid3 import EasyID3
-
 import pandas as pd
-import resampy
 import pymongo
 import librosa
+from mutagen.easyid3 import EasyID3
 
-import timeit
-
+# TODO conditional imports
 from shazam_plots import plot_recognition_rate, plot_spectrogram_and_peak_subplots, start_hist_subplots, \
     make_next_hist_subplot, show_hist_plot, plot_hist_of_stks, plot_show, plot_scatter_of_fingerprint_offsets
 
@@ -65,10 +63,10 @@ def main(insert_into_database=False, do_plotting=False):
                                                               metadata, songs_collection)
                 performance_results[mp3_i, snr_i] = correct_match
 
-            recognition_rate = performance_results.mean(axis=0) * 100.0
-            if do_plotting:
-                plot_recognition_rate(recognition_rate, snrs_to_test)
-            print()
+    recognition_rate = performance_results.mean(axis=0) * 100.0
+    if do_plotting or True:
+        plot_recognition_rate(recognition_rate, snrs_to_test)
+    print()
     return
 
 
@@ -104,7 +102,6 @@ def try_to_match_clip_to_database(do_plotting, filepath, fingerprints, fingerpri
     song_doc = songs_collection.find_one(song)
     if song_doc is None:
         raise Exception(filepath + "needs to be inserted into the DB first!")
-    # ax = plt.subplot(2, 1, 1)
     # print("querying database")
     stks = []
     db_fp_song_ids = []
@@ -125,7 +122,8 @@ def try_to_match_clip_to_database(do_plotting, filepath, fingerprints, fingerpri
             local_fp_offsets.append(local_fp_offset)
 
             if do_plotting:
-                plot_scatter_of_fingerprint_offsets(fingerprint_i, db_fp_offset, db_fp_song_id, local_fp_offset)
+                plot_scatter_of_fingerprint_offsets(fingerprint_i, db_fp_offset, db_fp_song_id, local_fp_offset,
+                                                    len(fingerprints))
 
             stk = db_fp_offset - local_fp_offset
             stks.append(stk)
@@ -249,20 +247,6 @@ def load_audio_data(filepath):
         "track_length_s": len(data) / rate
     }
     return data, rate, metadata
-
-
-def downsample_audio(data, rate):
-    print("downsampling audio")
-    downsampled_rate = 8000
-    data = resampy.resample(data, rate, downsampled_rate)
-    rate = downsampled_rate
-    return data, rate
-
-
-def crop_audio_time(data, rate):
-    print("cropping audio")
-    data = data[:rate * 14]
-    return data
 
 
 def get_spectrogram(data, rate):

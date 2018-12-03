@@ -102,7 +102,7 @@ def show_hist_plot(max_hist_song, song_doc):
 
 
 def plot_hist_of_stks(stks_in_songID):
-    hist_mpl, bin_edges_mpl, patches = plt.hist(stks_in_songID.values, bins='auto', rwidth=.9)
+    hist_mpl, bin_edges_mpl, patches = plt.hist(stks_in_songID.values, bins='auto', rwidth=.7)
     # plt.bar(unique, unique_counts)
     return
 
@@ -111,7 +111,7 @@ def plot_show():
     plt.show()
 
 
-def plot_scatter_of_fingerprint_offsets(color_index, db_fp_offset, db_fp_song_id, local_fp_offset):
-    viridis = cm.get_cmap('viridis', len(fingerprints)).colors
+def plot_scatter_of_fingerprint_offsets(color_index, db_fp_offset, db_fp_song_id, local_fp_offset, n_fingerprints):
+    viridis = cm.get_cmap('viridis', n_fingerprints).colors
     plt.scatter(db_fp_offset, local_fp_offset, c=viridis[color_index])
     plt.text(db_fp_offset, local_fp_offset, db_fp_song_id)
