@@ -5,15 +5,8 @@ import scipy.signal
 import scipy.ndimage.filters
 import scipy.ndimage.measurements
 import scipy.io.wavfile
-import matplotlib.pyplot as plt
-import matplotlib.colors as colors
-from matplotlib import cm
-from matplotlib import scale as mscale
-import matplotlib.patches as patches
-import matplotlib.ticker as plticker
 from mutagen.easyid3 import EasyID3
 
-from power_scale import PowerScale
 import pandas as pd
 import resampy
 import pymongo
@@ -21,10 +14,13 @@ import librosa
 
 import timeit
 
-time_functions = True
-time_add_noise = True
-time_find_spec_peaks = True
-time_n_repeats = 10
+from shazam_plots import plot_recognition_rate, plot_spectrogram_and_peak_subplots, start_hist_subplots, \
+    make_next_hist_subplot, show_hist_plot, plot_hist_of_stks, plot_show, plot_scatter_of_fingerprint_offsets
+
+time_functions = False
+time_add_noise = True & time_functions
+time_find_spec_peaks = True & time_functions
+time_n_repeats = 1000
 
 
 def main(insert_into_database=False, do_plotting=False):
@@ -54,13 +50,13 @@ def main(insert_into_database=False, do_plotting=False):
             insert_one_song_into_database(metadata, fingerprints, fingerprints_collection, songs_collection)
 
         if query_database:
-            data = get_test_subset(data)
+            data_subset = get_test_subset(data)
 
             for snr_i, snr_dbfs in enumerate(snrs_to_test):
-                data_and_noise = add_noise(data, desired_snr_dbfs=snr_dbfs)
+                data_and_noise = add_noise(data_subset, desired_snr_dbfs=snr_dbfs)
 
-                if time_functions and time_add_noise:
-                    avg_time_add_noise = time_a_function(lambda: add_noise(data, desired_snr_dbfs=snr_dbfs))
+                if time_add_noise:
+                    avg_time_add_noise = time_a_function(lambda: add_noise(data_subset, desired_snr_dbfs=snr_dbfs))
                     print("add_noise() took", '{0:.2f}'.format(avg_time_add_noise * 1000), "ms")
 
                 fingerprints = get_fingerprints_from_audio(data_and_noise, rate, do_plotting)
@@ -70,7 +66,8 @@ def main(insert_into_database=False, do_plotting=False):
                 performance_results[mp3_i, snr_i] = correct_match
 
             recognition_rate = performance_results.mean(axis=0) * 100.0
-            plot_recognition_rate(recognition_rate, snrs_to_test)
+            if do_plotting:
+                plot_recognition_rate(recognition_rate, snrs_to_test)
             print()
     return
 
@@ -83,67 +80,20 @@ def time_a_function(func_lambda):
     return avg_time_add_noise
 
 
-def plot_recognition_rate(recognition_rate, snrs_to_test):
-    plt.style.use('ggplot')
-    plt.plot(snrs_to_test, recognition_rate)
-    plt.xlabel('Signal to Noise Ratio (dBFS)')
-    plt.ylabel('Songs Identified')
-    # plt.gca().xaxis.set_major_formatter(plticker.FormatStrFormatter('%d dBFS'))
-    plt.gca().yaxis.set_major_formatter(plticker.FormatStrFormatter('%d %%'))
-    plt.show()
-
-
 def get_fingerprints_from_audio(data, rate, do_plotting):
     Sxx, f, t = get_spectrogram(data, rate)
     f_step = np.median(f[1:-1] - f[:-2])
     t_step = np.median(t[1:-1] - t[:-2])
     peak_locations, max_filter, max_filter_size = find_spectrogram_peaks(Sxx, t_step)
+
     if time_find_spec_peaks:
         avg_time = time_a_function(lambda: find_spectrogram_peaks(Sxx, t_step))
+        print("Sxx was ", Sxx.shape)
         print("find_spectrogram_peaks() took", '{0:.2f}'.format(avg_time * 1000), "ms")
     if do_plotting:
         plot_spectrogram_and_peak_subplots(Sxx, f, max_filter, max_filter_size, peak_locations, t)
     fingerprints = get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step)
     return fingerprints
-
-
-def plot_spectrogram_and_peak_subplots(Sxx, f, max_filter, max_filter_size, peak_locations, t):
-    ax = plt.subplot(2, 3, 1)
-    plt.title("1. Spectrogram")
-    plot_spectrogram(Sxx, f, t)
-    plt.subplot(2, 3, 2, sharex=ax, sharey=ax)
-    plt.title("2. Max Filtered")
-    plot_grid_of_filter_size(max_filter_size)
-    plot_spectrogram(max_filter, f, t)
-    # rect = patches.Rectangle((0, 0), max_filter_size[1] * t_step, max_filter_size[0] * f_step, edgecolor="black")
-    # plt.gca().add_patch(rect)
-    # ylim = plt.ylim()
-    # xlim = plt.xlim()
-    # for i in range(23):
-    #     plt.axvline(x=max_filter_size[0] * t_step * i)
-    # for i in range(9):
-    #     plt.axhline(y=max_filter_size[1] * f_step * i)
-    # plt.ylim(ylim)
-    # plt.xlim(xlim)
-    plt.subplot(2, 3, 3, sharex=ax, sharey=ax)
-    plt.title("3.(A) Max Filtered == Spectrogram")
-    plot_spectrogram(max_filter, f, t)
-    plot_grid_of_filter_size(max_filter_size)
-    plot_spectrogram_peaks(peak_locations, f, t)
-    plt.subplot(2, 3, 4, sharex=ax, sharey=ax)
-    plt.title("3.(B) Max Filtered == Spectrogram")
-    plot_spectrogram(Sxx, f, t)
-    plot_grid_of_filter_size(max_filter_size)
-    plot_spectrogram_peaks(peak_locations, f, t)
-    plt.subplot(2, 3, 5, sharex=ax, sharey=ax)
-    plt.title("3.(C) Max Filtered == Spectrogram")
-    # plot_spectrogram(Sxx, f, t)
-    plot_grid_of_filter_size(max_filter_size)
-    plot_spectrogram_peaks(peak_locations, f, t)
-    plt.xlim(0, 500)
-    plt.ylim(0, 512)
-    plt.show()
-    return
 
 
 def try_to_match_clip_to_database(do_plotting, filepath, fingerprints, fingerprints_collection, metadata,
@@ -156,13 +106,11 @@ def try_to_match_clip_to_database(do_plotting, filepath, fingerprints, fingerpri
         raise Exception(filepath + "needs to be inserted into the DB first!")
     # ax = plt.subplot(2, 1, 1)
     # print("querying database")
-    if do_plotting:
-        viridis = cm.get_cmap('viridis', len(fingerprints)).colors
     stks = []
     db_fp_song_ids = []
     db_fp_offsets = []
     local_fp_offsets = []
-    for color_index, fingerprint in enumerate(fingerprints):
+    for fingerprint_i, fingerprint in enumerate(fingerprints):
         cursor = fingerprints_collection.find({'hash': fingerprint['hash']}, projection={"_id": 0, "hash": 0})
         # cursor_listed = list(cursor)
         # df_fingerprint_matches = pd.DataFrame(cursor_listed)
@@ -177,13 +125,12 @@ def try_to_match_clip_to_database(do_plotting, filepath, fingerprints, fingerpri
             local_fp_offsets.append(local_fp_offset)
 
             if do_plotting:
-                plt.scatter(db_fp_offset, local_fp_offset, c=viridis[color_index])
-                plt.text(db_fp_offset, local_fp_offset, db_fp_song_id)
+                plot_scatter_of_fingerprint_offsets(fingerprint_i, db_fp_offset, db_fp_song_id, local_fp_offset)
 
             stk = db_fp_offset - local_fp_offset
             stks.append(stk)
     if do_plotting:
-        plt.show()
+        plot_show()
     df_fingerprint_matches = pd.DataFrame({
         "songID": db_fp_song_ids,
         "stk": stks
@@ -194,14 +141,12 @@ def try_to_match_clip_to_database(do_plotting, filepath, fingerprints, fingerpri
     if n_possible_songs == 0:
         return False
     if do_plotting:
-        ax = plt.subplot(n_possible_songs, 1, 1)
+        ax = start_hist_subplots(n_possible_songs)
     max_hist_peak = 0
     max_hist_song = None
     for i, song_id in enumerate(index_set):
         if do_plotting:
-            if i > 0:
-                plt.subplot(n_possible_songs, 1, i + 1, sharey=ax)
-            plt.title("song_id:" + str(song_id))
+            make_next_hist_subplot(ax, i, n_possible_songs, song_id)
         stks_in_songID = df_fingerprint_matches.loc[song_id]
         # TODO clustering histogram?
         # unique, unique_counts = np.unique(stks_in_songID.values, return_counts=True)
@@ -210,15 +155,12 @@ def try_to_match_clip_to_database(do_plotting, filepath, fingerprints, fingerpri
             max_hist_peak = max(hist)
             max_hist_song = song_id
         if do_plotting:
-            hist_mpl, bin_edges_mpl, patches = plt.hist(stks_in_songID.values, bins='auto', rwidth=.9)
-            # plt.bar(unique, unique_counts)
+            plot_hist_of_stks(stks_in_songID)
     # TODO false positives?
     correct_match = max_hist_song == song_doc['_id']
     print("correct_match=", correct_match)
     if do_plotting:
-        plt.suptitle("matching song id=" + str(max_hist_song) + ",correct song=" + str(song_doc['_id']))
-        plt.tight_layout()
-        plt.show()
+        show_hist_plot(max_hist_song, song_doc)
     return correct_match
 
 
@@ -414,40 +356,6 @@ def decode_hash(key):
     # shift 20 bits
     peak_f = np.right_shift(key, np.uint32(20))
     return peak_f, second_peak_f, time_delta
-
-
-def plot_spectrogram_peaks(peak_locations, f, t):
-    # plt.scatter(t[peak_locations[:, 1]], f[peak_locations[:, 0]], marker="*", c="red")
-    plt.scatter(peak_locations[:, 1], peak_locations[:, 0], marker="*", c="Tomato", edgecolor="Snow", linewidths=.5)
-    return
-
-
-def plot_spectrogram(Sxx, f, t, alpha=1.0):
-    color_norm = colors.LogNorm(vmin=1 / (2 ** 20), vmax=1)
-    # color_norm = colors.LogNorm(vmin=Sxx.min(), vmax=Sxx.max())
-    # plt.pcolormesh(t, f, Sxx, norm=color_norm, cmap='Greys')
-    # plt.pcolormesh(t, f, Sxx, norm=color_norm, alpha=alpha)
-    # plt.pcolormesh(Sxx, alpha=alpha, cmap='gray')
-    # plt.pcolormesh(Sxx, norm=color_norm, alpha=alpha, cmap='gray')
-    plt.pcolormesh(Sxx, norm=color_norm, alpha=alpha)
-    # plt.ylabel('Frequency [Hz]')
-    # plt.xlabel('Time [sec]')
-    plt.ylabel('Frequency Bin Index')
-    plt.xlabel('Time Segment Index')
-    # plt.yscale('log')
-    # mscale.register_scale(PowerScale)
-    # plt.yscale('powerscale', power=.5)
-
-    # plt.yticks(rotation=0)
-    # plt.yticks([0, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000])
-    return
-
-
-def plot_grid_of_filter_size(max_filter_size):
-    plt.gca().xaxis.set_major_locator(plticker.MultipleLocator(base=max_filter_size[0]))
-    plt.gca().yaxis.set_major_locator(plticker.MultipleLocator(base=max_filter_size[1]))
-    plt.grid(True, color='Black')
-    return
 
 
 if __name__ == '__main__':
