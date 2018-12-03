@@ -19,6 +19,13 @@ import resampy
 import pymongo
 import librosa
 
+import timeit
+
+time_functions = True
+time_add_noise = True
+time_find_spec_peaks = True
+time_n_repeats = 10
+
 
 def main(insert_into_database=False, do_plotting=False):
     query_database = not insert_into_database
@@ -42,33 +49,48 @@ def main(insert_into_database=False, do_plotting=False):
         print(mp3_filepath)
         data, rate, metadata = load_audio_data(directory + mp3_filepath)
 
+        if insert_into_database:
+            fingerprints = get_fingerprints_from_audio(data, rate, do_plotting)
+            insert_one_song_into_database(metadata, fingerprints, fingerprints_collection, songs_collection)
+
         if query_database:
             data = get_test_subset(data)
 
             for snr_i, snr_dbfs in enumerate(snrs_to_test):
                 data_and_noise = add_noise(data, desired_snr_dbfs=snr_dbfs)
+
+                if time_functions and time_add_noise:
+                    avg_time_add_noise = time_a_function(lambda: add_noise(data, desired_snr_dbfs=snr_dbfs))
+                    print("add_noise() took", '{0:.2f}'.format(avg_time_add_noise * 1000), "ms")
+
                 fingerprints = get_fingerprints_from_audio(data_and_noise, rate, do_plotting)
                 correct_match = try_to_match_clip_to_database(do_plotting, mp3_filepath, fingerprints,
                                                               fingerprints_collection,
                                                               metadata, songs_collection)
                 performance_results[mp3_i, snr_i] = correct_match
-            pass
 
-        elif insert_into_database:
-            fingerprints = get_fingerprints_from_audio(data, rate, do_plotting)
-            insert_one_song_into_database(metadata, fingerprints, fingerprints_collection, songs_collection)
-
-    if query_database:
-        recognition_rate = performance_results.mean(axis=0) * 100.0
-        plt.style.use('ggplot')
-        plt.plot(snrs_to_test, recognition_rate)
-        plt.xlabel('Signal to Noise Ratio (dBFS)')
-        plt.ylabel('Songs Identified')
-        # plt.gca().xaxis.set_major_formatter(plticker.FormatStrFormatter('%d dBFS'))
-        plt.gca().yaxis.set_major_formatter(plticker.FormatStrFormatter('%d %%'))
-        plt.show()
-        print()
+            recognition_rate = performance_results.mean(axis=0) * 100.0
+            plot_recognition_rate(recognition_rate, snrs_to_test)
+            print()
     return
+
+
+def time_a_function(func_lambda):
+    print("warning: timing a function. This will cause unnecessary slowdowns.")
+    timer_add_noise = timeit.Timer(func_lambda)
+    time_taken_add_noise = timer_add_noise.timeit(number=time_n_repeats)
+    avg_time_add_noise = time_taken_add_noise / time_n_repeats
+    return avg_time_add_noise
+
+
+def plot_recognition_rate(recognition_rate, snrs_to_test):
+    plt.style.use('ggplot')
+    plt.plot(snrs_to_test, recognition_rate)
+    plt.xlabel('Signal to Noise Ratio (dBFS)')
+    plt.ylabel('Songs Identified')
+    # plt.gca().xaxis.set_major_formatter(plticker.FormatStrFormatter('%d dBFS'))
+    plt.gca().yaxis.set_major_formatter(plticker.FormatStrFormatter('%d %%'))
+    plt.show()
 
 
 def get_fingerprints_from_audio(data, rate, do_plotting):
@@ -76,6 +98,9 @@ def get_fingerprints_from_audio(data, rate, do_plotting):
     f_step = np.median(f[1:-1] - f[:-2])
     t_step = np.median(t[1:-1] - t[:-2])
     peak_locations, max_filter, max_filter_size = find_spectrogram_peaks(Sxx, t_step)
+    if time_find_spec_peaks:
+        avg_time = time_a_function(lambda: find_spectrogram_peaks(Sxx, t_step))
+        print("find_spectrogram_peaks() took", '{0:.2f}'.format(avg_time * 1000), "ms")
     if do_plotting:
         plot_spectrogram_and_peak_subplots(Sxx, f, max_filter, max_filter_size, peak_locations, t)
     fingerprints = get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step)
@@ -241,8 +266,7 @@ def add_noise(data, desired_snr_dbfs):
     white_noise_adjusted = white_noise * snr * desired_nsr_linear
     # TODO test this, it's not right:
     actual_snr_dbfs = convert_to_dbfs(rms_signal / get_rms_linear(white_noise_adjusted))
-    data += white_noise_adjusted
-    return data
+    return data + white_noise_adjusted
 
 
 def dbfs_to_linear(snr):
