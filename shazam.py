@@ -34,7 +34,8 @@ def main(insert_into_database=False, do_plotting=False):
             continue
         mp3_filepaths.append(filepath)
 
-    # mp3_filepaths = mp3_filepaths[0:2]
+    # mp3_filepaths = [mp3_filepaths[i] for i in [1, 2, 6, 7, 9, 14, 16, 18, 31, 29, 36]]
+    # mp3_filepaths = [mp3_filepaths[i] for i in [31]]
 
     snrs_to_test = [15, 12, 9, 6, 3, 0, -3, -9, -12, -15]
     performance_results = np.zeros((len(mp3_filepaths), len(snrs_to_test)), dtype=bool)
@@ -63,10 +64,11 @@ def main(insert_into_database=False, do_plotting=False):
                                                               metadata, songs_collection)
                 performance_results[mp3_i, snr_i] = correct_match
 
-    recognition_rate = performance_results.mean(axis=0) * 100.0
-    if do_plotting or True:
-        plot_recognition_rate(recognition_rate, snrs_to_test)
-    print()
+    if query_database:
+        recognition_rate = performance_results.mean(axis=0) * 100.0
+        if do_plotting or True:
+            plot_recognition_rate(recognition_rate, snrs_to_test)
+        print()
     return
 
 
@@ -98,7 +100,7 @@ def try_to_match_clip_to_database(do_plotting, filepath, fingerprints, fingerpri
                                   songs_collection):
     # print("querying song in database")
     song = {'artist': metadata['artist'], 'album': metadata['album'], 'title': metadata['title'],
-            'length': metadata['track_length_s']}
+            'track_length_s': metadata['track_length_s']}
     song_doc = songs_collection.find_one(song)
     if song_doc is None:
         raise Exception(filepath + "needs to be inserted into the DB first!")
@@ -165,7 +167,7 @@ def try_to_match_clip_to_database(do_plotting, filepath, fingerprints, fingerpri
 def insert_one_song_into_database(metadata, fingerprints, fingerprints_collection, songs_collection):
     print("querying song in database")
     song = {'artist': metadata['artist'], 'album': metadata['album'], 'title': metadata['title'],
-            'length': metadata['track_length_s']}
+            'track_length_s': metadata['track_length_s']}
     song_doc = songs_collection.find_one(song)
     if song_doc is None:
         print("inserting song into database")
@@ -190,17 +192,21 @@ def get_test_subset(data):
     # subset_length = np.random.randint(rate * 5, rate * 14)
     subset_length = 112000
     subset_length = min(len(data), subset_length)
-    random_start_time = np.random.randint(0, len(data) - subset_length)
+    random = np.random.RandomState(42)
+    random_start_time = random.randint(0, len(data) - subset_length)
+
     data = data[random_start_time:random_start_time + subset_length]
     return data
 
 
 def add_noise(data, desired_snr_dbfs):
+    random = np.random.RandomState(42)
     # TODO real noise audio
-    white_noise = (np.random.random(len(data)) * 2) - 1
+    white_noise = (random.random_sample(len(data)) * 2) - 1
     rms_signal = get_rms_linear(data)
     rms_noise = get_rms_linear(white_noise)
     snr = rms_signal / rms_noise
+
     desired_nsr_dbfs = -desired_snr_dbfs
     desired_nsr_linear = dbfs_to_linear(desired_nsr_dbfs)
     white_noise_adjusted = white_noise * snr * desired_nsr_linear
@@ -304,7 +310,8 @@ def get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step):
 
         # TODO better way to check the zone (sweep line)
         time_index = (df_peak_locations['t'] <= zone_time_end) & (df_peak_locations['t'] >= zone_time_start)
-        freq_index = (zone_freq_start <= df_peak_locations['f']) & (df_peak_locations['f'] <= zone_freq_end)
+        freq_index = (zone_freq_start <= df_peak_locations['f']) & (df_peak_locations['f'] <= zone_freq_end) & (
+                df_peak_locations['f'] != anchor_f)
         zone_index = time_index & freq_index
         n_pairs = zone_index.sum()
         paired_df_peak_locations = df_peak_locations[zone_index]
