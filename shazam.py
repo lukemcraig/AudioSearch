@@ -18,6 +18,8 @@ from shazam_plots import plot_recognition_rate, plot_spectrogram_and_peak_subplo
 time_functions = False
 time_add_noise = True & time_functions
 time_find_spec_peaks = True & time_functions
+time_get_target_zone = True & time_functions
+time_query_peaks_for_target_zone = True & time_functions
 time_n_repeats = 1000
 
 
@@ -318,11 +320,22 @@ def get_fingerprints_from_peaks(f_max, f_step, peak_locations, t_max, t_step):
                                                                                                 zone_f_size,
                                                                                                 zone_t_offset,
                                                                                                 zone_t_size)
+        if time_get_target_zone:
+            avg_time = time_a_function(lambda: get_target_zone_bounds(anchor_f, anchor_t, f_max, t_max, zone_f_size,
+                                                                      zone_t_offset, zone_t_size))
+            print("get_target_zone_bounds() took", '{0:.2f}'.format(avg_time * 1000), "ms")
 
         # TODO better way to check the zone (sweep line)
         paired_df_peak_locations = query_dataframe_for_peaks_in_target_zone(df_peak_locations, zone_freq_end,
                                                                             zone_freq_start, zone_time_end,
                                                                             zone_time_start)
+        if time_query_peaks_for_target_zone:
+            avg_time = time_a_function(lambda: query_dataframe_for_peaks_in_target_zone(df_peak_locations,
+                                                                                        zone_freq_end,
+                                                                                        zone_freq_start, zone_time_end,
+                                                                                        zone_time_start))
+            print("query_dataframe_for_peaks_in_target_zone() took", '{0:.2f}'.format(avg_time * 1000), "ms")
+
         for j, second_peak in paired_df_peak_locations.iterrows():
             # print("    ", j, "/", n_pairs)
             second_peak_f = second_peak['f']
