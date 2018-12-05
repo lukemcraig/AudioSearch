@@ -10,7 +10,8 @@ import pandas as pd
 import librosa
 from mutagen.easyid3 import EasyID3
 
-from audio_search_dbs import DuplicateKeyError, MongoAudioPrintDB
+from audio_search_dbs import DuplicateKeyError
+from mongo_audio_print_db import MongoAudioPrintDB
 # TODO conditional imports
 from shazam_plots import plot_recognition_rate, plot_spectrogram_and_peak_subplots, start_hist_subplots, \
     make_next_hist_subplot, show_hist_plot, plot_hist_of_stks, plot_show, plot_scatter_of_fingerprint_offsets
