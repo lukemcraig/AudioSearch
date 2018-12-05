@@ -209,27 +209,27 @@ def get_test_subset(data):
 
 
 def add_noise(data, desired_snr_db):
-    random = np.random.RandomState(42)
     # TODO real noise audio
-    white_noise = (random.random_sample(len(data)) * 2) - 1
+    noise = get_white_noise(data)
 
     rms_signal = get_rms_linear(data)
-    rms_noise = get_rms_linear(white_noise)
+    rms_noise = get_rms_linear(noise)
 
     desired_snr_linear = db_to_linear(desired_snr_db)
     adjustment = rms_signal / (rms_noise * desired_snr_linear)
-    white_noise_adjusted = white_noise * adjustment
+    white_noise_adjusted = noise * adjustment
 
-    # snr = rms_signal / rms_noise
-    # desired_nsr_dbfs = -desired_snr_dbfs
-    # desired_nsr_linear = dbfs_to_linear(desired_nsr_dbfs)
-    # white_noise_adjusted = white_noise * snr * desired_nsr_linear
-    # TODO test this, it's not right:
     rms_noise_adjusted = get_rms_linear(white_noise_adjusted)
     actual_snr_linear = rms_signal / rms_noise_adjusted
     actual_snr_db = convert_to_db(actual_snr_linear)
-    np.testing.assert_almost_equal(actual=actual_snr_db, desired=desired_snr_db)
+
     return data + white_noise_adjusted
+
+
+def get_white_noise(data):
+    random = np.random.RandomState(42)
+    white_noise = (random.random_sample(len(data)) * 2) - 1
+    return white_noise
 
 
 def db_to_linear(db_values):
