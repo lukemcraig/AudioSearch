@@ -39,7 +39,7 @@ class AudioSearch:
             self.insert_one_mp3_with_fingerprints_into_database(metadata, fingerprints)
         return
 
-    def measure_performance_of_multiple_snrs_and_mp3s(self, fingerprints_collection, mp3_filepaths, songs_collection):
+    def measure_performance_of_multiple_snrs_and_mp3s(self, mp3_filepaths):
         # mp3_filepaths = [mp3_filepaths[i] for i in [1, 2, 6, 7, 9, 14, 16, 18, 31, 29, 36]]
         # mp3_filepaths = [mp3_filepaths[i] for i in [31, 36]]
         snrs_to_test = [-15, -12, -9, -6, -3, 0, 3, 6, 9, 12, 15]
@@ -51,10 +51,8 @@ class AudioSearch:
             data_subset = self.get_test_subset(data)
 
             for snr_i, snr_dbfs in enumerate(snrs_to_test):
-                correct_match, predicted_song_id = self.add_noise_and_predict_one_clip(data_subset,
-                                                                                       fingerprints_collection,
-                                                                                       metadata, mp3_filepath, rate,
-                                                                                       snr_dbfs, songs_collection)
+                correct_match, predicted_song_id = self.add_noise_and_predict_one_clip(data_subset, metadata,
+                                                                                       mp3_filepath, rate, snr_dbfs)
                 performance_results[mp3_i, snr_i] = correct_match
 
         recognition_rate = performance_results.mean(axis=0) * 100.0
@@ -62,22 +60,17 @@ class AudioSearch:
             plot_recognition_rate(recognition_rate, snrs_to_test)
         return
 
-    def add_noise_and_predict_one_clip(self, data_subset, fingerprints_collection, metadata, mp3_filepath, rate,
-                                       snr_dbfs, songs_collection):
+    def add_noise_and_predict_one_clip(self, data_subset, metadata, mp3_filepath, rate, snr_dbfs):
         data_and_noise = self.add_noise(data_subset, desired_snr_db=snr_dbfs)
         if self.time_add_noise:
             avg_time_add_noise = self.time_a_function(lambda: self.add_noise(data_subset, desired_snr_db=snr_dbfs))
             print("add_noise() took", '{0:.2f}'.format(avg_time_add_noise * 1000), "ms")
-        predicted_song_id, correct_match = self.predict_one_audio_clip(data_and_noise, fingerprints_collection,
-                                                                       metadata, mp3_filepath, rate, songs_collection)
+        predicted_song_id, correct_match = self.predict_one_audio_clip(data_and_noise, metadata, mp3_filepath, rate)
         return correct_match, predicted_song_id
 
-    def predict_one_audio_clip(self, data_and_noise, fingerprints_collection, metadata, mp3_filepath, rate,
-                               songs_collection):
+    def predict_one_audio_clip(self, data_and_noise, metadata, mp3_filepath, rate):
         fingerprints = self.get_fingerprints_from_audio(data_and_noise, rate)
-        predicted_song_id, correct_match = self.try_to_match_clip_to_database(mp3_filepath, fingerprints,
-                                                                              fingerprints_collection, metadata,
-                                                                              songs_collection)
+        predicted_song_id, correct_match = self.try_to_match_clip_to_database(mp3_filepath, fingerprints, metadata)
         return predicted_song_id, correct_match
 
     def time_a_function(self, func_lambda):
@@ -103,16 +96,15 @@ class AudioSearch:
         fingerprints = self.get_fingerprints_from_peaks(len(f) - 1, f_step, peak_locations, len(t) - 1, t_step)
         return fingerprints
 
-    def try_to_match_clip_to_database(self, filepath, fingerprints, fingerprints_collection, metadata,
-                                      songs_collection):
+    def try_to_match_clip_to_database(self, filepath, fingerprints, metadata):
         # print("querying song in database")
         song = {'artist': metadata['artist'], 'album': metadata['album'], 'title': metadata['title'],
                 'track_length_s': metadata['track_length_s']}
-        song_doc = songs_collection.find_one(song)
+        song_doc = self.audio_prints_db.find_one_song(song)
         if song_doc is None:
             raise Exception(filepath + "needs to be inserted into the DB first!")
         # print("querying database")
-        df_fingerprint_matches = self.get_df_of_fingerprint_offsets(fingerprints, fingerprints_collection)
+        df_fingerprint_matches = self.get_df_of_fingerprint_offsets(fingerprints)
 
         index_set = set(df_fingerprint_matches.index)
         n_possible_songs = len(index_set)
@@ -156,14 +148,14 @@ class AudioSearch:
                 plot_hist_of_stks(np.arange(unique_min, unique_max + 1), filtered_hist, alpha=0.5)
         return max_hist_song
 
-    def get_df_of_fingerprint_offsets(self, fingerprints, fingerprints_collection):
+    def get_df_of_fingerprint_offsets(self, fingerprints):
         stks = []
         db_fp_song_ids = []
         db_fp_offsets = []
         local_fp_offsets = []
         for fingerprint_i, fingerprint in enumerate(fingerprints):
-            cursor = fingerprints_collection.find({'hash': fingerprint['hash']}, projection={"_id": 0, "hash": 0})
-            for db_fp in cursor:
+            db_fp_iterator = self.audio_prints_db.find_db_fingerprints_with_hash_key(fingerprint)
+            for db_fp in db_fp_iterator:
                 db_fp_song_id = db_fp['songID']
                 db_fp_song_ids.append(db_fp_song_id)
                 # print(db_fp_song_id)
@@ -406,6 +398,9 @@ class AudioPrintsDB(ABC):
     def insert_one_song(self, song):
         pass
 
+    def find_db_fingerprints_with_hash_key(self, fingerprint):
+        pass
+
 
 class MongoAudioPrintDB(AudioPrintsDB):
     def __init__(self):
@@ -436,6 +431,9 @@ class MongoAudioPrintDB(AudioPrintsDB):
         insert_song_result = self.songs_collection.insert_one(song)
         return insert_song_result.inserted_id
 
+    def find_db_fingerprints_with_hash_key(self, fingerprint):
+        return self.fingerprints_collection.find({'hash': fingerprint['hash']}, projection={"_id": 0, "hash": 0})
+
     def get_client(self):
         print("getting client...")
         client = pymongo.MongoClient('mongodb://localhost:27017')
@@ -452,16 +450,14 @@ def get_mp3_filepaths_from_directory(directory='C:/Users\Luke\Downloads/Disaster
     return mp3_filepaths
 
 
-def main(insert_into_database=True):
+def main(insert_into_database=False):
     audio_prints_db = MongoAudioPrintDB()
     audio_search = AudioSearch(audio_prints_db=audio_prints_db)
     mp3_filepaths = get_mp3_filepaths_from_directory()
     if insert_into_database:
         audio_search.insert_mp3s_fingerprints_into_database(mp3_filepaths)
     else:
-        audio_search.measure_performance_of_multiple_snrs_and_mp3s(audio_prints_db.fingerprints_collection,
-                                                                   mp3_filepaths,
-                                                                   audio_prints_db.songs_collection)
+        audio_search.measure_performance_of_multiple_snrs_and_mp3s(mp3_filepaths)
     return
 
 
