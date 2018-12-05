@@ -219,10 +219,6 @@ def add_noise(data, desired_snr_db):
     adjustment = rms_signal / (rms_noise * desired_snr_linear)
     white_noise_adjusted = noise * adjustment
 
-    rms_noise_adjusted = get_rms_linear(white_noise_adjusted)
-    actual_snr_linear = rms_signal / rms_noise_adjusted
-    actual_snr_db = convert_to_db(actual_snr_linear)
-
     return data + white_noise_adjusted
 
 
