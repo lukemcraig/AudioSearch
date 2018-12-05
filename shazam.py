@@ -323,8 +323,7 @@ def get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step):
 
         # TODO better way to check the zone (sweep line)
         time_index = (df_peak_locations['t'] <= zone_time_end) & (df_peak_locations['t'] >= zone_time_start)
-        freq_index = (zone_freq_start <= df_peak_locations['f']) & (df_peak_locations['f'] <= zone_freq_end) & (
-                df_peak_locations['f'] != anchor_f)
+        freq_index = (zone_freq_start <= df_peak_locations['f']) & (df_peak_locations['f'] <= zone_freq_end)
         zone_index = time_index & freq_index
         n_pairs = zone_index.sum()
         paired_df_peak_locations = df_peak_locations[zone_index]
