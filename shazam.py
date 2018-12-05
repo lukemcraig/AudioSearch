@@ -16,6 +16,16 @@ from shazam_plots import plot_recognition_rate, plot_spectrogram_and_peak_subplo
     make_next_hist_subplot, show_hist_plot, plot_hist_of_stks, plot_show, plot_scatter_of_fingerprint_offsets
 
 
+def get_mp3_filepaths_from_directory():
+    directory = 'C:/Users\Luke\Downloads/Disasterpeace/'
+    mp3_filepaths = []
+    for filepath in os.listdir(directory):
+        if filepath[-4:] != '.mp3':
+            continue
+        mp3_filepaths.append(directory + filepath)
+    return mp3_filepaths
+
+
 class AudioSearch:
     time_functions = False
     time_add_noise = True & time_functions
@@ -28,35 +38,28 @@ class AudioSearch:
         self.do_plotting = do_plotting
         pass
 
-    def main(self, insert_into_database=False):
+    def old_main(self, mp3_filepaths, insert_into_database=False):
         client = self.get_client()
         fingerprints_collection = client.audioprintsDB.fingerprints
         songs_collection = client.audioprintsDB.songs
-        directory = 'C:/Users\Luke\Downloads/Disasterpeace/'
-        mp3_filepaths = []
-        for filepath in os.listdir(directory):
-            if filepath[-4:] != '.mp3':
-                continue
-            mp3_filepaths.append(filepath)
 
         if insert_into_database:
-            self.insert_mp3s_into_database(directory, fingerprints_collection, mp3_filepaths, songs_collection)
+            self.insert_mp3s_into_database(fingerprints_collection, mp3_filepaths, songs_collection)
         else:
-            self.measure_performance_of_multiple_snrs_and_mp3s(directory, fingerprints_collection, mp3_filepaths,
-                                                               songs_collection)
+            self.measure_performance_of_multiple_snrs_and_mp3s(fingerprints_collection, mp3_filepaths, songs_collection)
         return
 
-    def insert_mp3s_into_database(self, directory, fingerprints_collection, mp3_filepaths, songs_collection):
+    def insert_mp3s_into_database(self, fingerprints_collection, mp3_filepaths, songs_collection):
         for mp3_i, mp3_filepath in enumerate(mp3_filepaths):
             print(mp3_filepath)
-            data, rate, metadata = self.load_audio_data(directory + mp3_filepath)
+            data, rate, metadata = self.load_audio_data(mp3_filepath)
 
             fingerprints = self.get_fingerprints_from_audio(data, rate)
-            self.insert_one_song_into_database(metadata, fingerprints, fingerprints_collection, songs_collection)
+            self.insert_one_mp3_with_fingerprints_into_database(metadata, fingerprints, fingerprints_collection,
+                                                                songs_collection)
         return
 
-    def measure_performance_of_multiple_snrs_and_mp3s(self, directory, fingerprints_collection, mp3_filepaths,
-                                                      songs_collection):
+    def measure_performance_of_multiple_snrs_and_mp3s(self, fingerprints_collection, mp3_filepaths, songs_collection):
         # mp3_filepaths = [mp3_filepaths[i] for i in [1, 2, 6, 7, 9, 14, 16, 18, 31, 29, 36]]
         # mp3_filepaths = [mp3_filepaths[i] for i in [31, 36]]
         snrs_to_test = [-15, -12, -9, -6, -3, 0, 3, 6, 9, 12, 15]
@@ -64,7 +67,7 @@ class AudioSearch:
         performance_results = np.zeros((len(mp3_filepaths), len(snrs_to_test)), dtype=bool)
         for mp3_i, mp3_filepath in enumerate(mp3_filepaths):
             print(mp3_filepath)
-            data, rate, metadata = self.load_audio_data(directory + mp3_filepath)
+            data, rate, metadata = self.load_audio_data(mp3_filepath)
             data_subset = self.get_test_subset(data)
 
             for snr_i, snr_dbfs in enumerate(snrs_to_test):
@@ -205,7 +208,19 @@ class AudioSearch:
         df_fingerprint_matches.set_index('songID', inplace=True)
         return df_fingerprint_matches
 
-    def insert_one_song_into_database(self, metadata, fingerprints, fingerprints_collection, songs_collection):
+    def insert_one_mp3_with_fingerprints_into_database(self, metadata, fingerprints, fingerprints_collection,
+                                                       songs_collection):
+        song_id_in_db = self.get_or_insert_song_into_db(metadata, songs_collection)
+        print("inserting fingerprints into database")
+        for fingerprint in fingerprints:
+            fingerprint['songID'] = song_id_in_db
+            try:
+                fingerprints_collection.insert_one(fingerprint)
+            except pymongo.errors.DuplicateKeyError:
+                continue
+        return
+
+    def get_or_insert_song_into_db(self, metadata, songs_collection):
         print("querying song in database")
         song = {'artist': metadata['artist'], 'album': metadata['album'], 'title': metadata['title'],
                 'track_length_s': metadata['track_length_s']}
@@ -220,13 +235,8 @@ class AudioSearch:
             song['_id'] = new_id
             insert_song_result = songs_collection.insert_one(song)
             song_doc = songs_collection.find_one({"_id": insert_song_result.inserted_id})
-        print("inserting fingerprints into database")
-        for fingerprint in fingerprints:
-            fingerprint['songID'] = song_doc['_id']
-            try:
-                fingerprints_collection.insert_one(fingerprint)
-            except pymongo.errors.DuplicateKeyError:
-                continue
+        song_id_in_db = song_doc['_id']
+        return song_id_in_db
 
     def get_test_subset(self, data):
         # subset_length = np.random.randint(rate * 5, rate * 14)
@@ -406,6 +416,12 @@ class AudioSearch:
         return peak_f, second_peak_f, time_delta
 
 
-if __name__ == '__main__':
+def main():
     audio_search = AudioSearch()
-    audio_search.main()
+    mp3_filepaths = get_mp3_filepaths_from_directory()
+    audio_search.old_main(mp3_filepaths)
+    return
+
+
+if __name__ == '__main__':
+    main()
