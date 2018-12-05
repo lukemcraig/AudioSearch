@@ -30,14 +30,13 @@ class AudioSearch:
         self.do_plotting = do_plotting
         pass
 
-    def insert_mp3s_fingerprints_into_database(self, fingerprints_collection, mp3_filepaths, songs_collection):
+    def insert_mp3s_fingerprints_into_database(self, mp3_filepaths):
         for mp3_i, mp3_filepath in enumerate(mp3_filepaths):
             print(mp3_filepath)
             data, rate, metadata = self.load_audio_data(mp3_filepath)
 
             fingerprints = self.get_fingerprints_from_audio(data, rate)
-            self.insert_one_mp3_with_fingerprints_into_database(metadata, fingerprints, fingerprints_collection,
-                                                                songs_collection)
+            self.insert_one_mp3_with_fingerprints_into_database(metadata, fingerprints)
         return
 
     def measure_performance_of_multiple_snrs_and_mp3s(self, fingerprints_collection, mp3_filepaths, songs_collection):
@@ -189,9 +188,8 @@ class AudioSearch:
         df_fingerprint_matches.set_index('songID', inplace=True)
         return df_fingerprint_matches
 
-    def insert_one_mp3_with_fingerprints_into_database(self, metadata, fingerprints, fingerprints_collection,
-                                                       songs_collection):
-        song_id_in_db = self.get_or_insert_song_into_db(metadata, songs_collection)
+    def insert_one_mp3_with_fingerprints_into_database(self, metadata, fingerprints):
+        song_id_in_db = self.get_or_insert_song_into_db(metadata)
         print("inserting fingerprints into database")
         for fingerprint in fingerprints:
             fingerprint['songID'] = song_id_in_db
@@ -202,23 +200,20 @@ class AudioSearch:
                 continue
         return
 
-    def get_or_insert_song_into_db(self, metadata, songs_collection):
+    def get_or_insert_song_into_db(self, metadata):
         print("querying song in database")
         song = {'artist': metadata['artist'], 'album': metadata['album'], 'title': metadata['title'],
                 'track_length_s': metadata['track_length_s']}
-        song_doc = songs_collection.find_one(song)
+        song_doc = self.audio_prints_db.find_one_song(song)
         if song_doc is None:
             print("inserting song into database")
-            most_recent_song = songs_collection.find_one({}, sort=[(u"_id", -1)])
-            if most_recent_song is not None:
-                new_id = most_recent_song['_id'] + 1
-            else:
-                new_id = 0
+            new_id = self.audio_prints_db.get_next_song_id()
             song['_id'] = new_id
-            insert_song_result = songs_collection.insert_one(song)
-            song_doc = songs_collection.find_one({"_id": insert_song_result.inserted_id})
-        song_id_in_db = song_doc['_id']
-        return song_id_in_db
+
+            inserted_id = self.audio_prints_db.insert_one_song(song)
+            return inserted_id
+        else:
+            return song_doc['_id']
 
     def get_test_subset(self, data):
         # subset_length = np.random.randint(rate * 5, rate * 14)
@@ -402,6 +397,15 @@ class AudioPrintsDB(ABC):
     def insert_one_fingerprint(self, fingerprint):
         pass
 
+    def find_one_song(self, song):
+        pass
+
+    def get_next_song_id(self):
+        pass
+
+    def insert_one_song(self, song):
+        pass
+
 
 class MongoAudioPrintDB(AudioPrintsDB):
     def __init__(self):
@@ -416,6 +420,21 @@ class MongoAudioPrintDB(AudioPrintsDB):
         except pymongo.errors.DuplicateKeyError:
             raise DuplicateKeyError
         return
+
+    def find_one_song(self, song):
+        return self.songs_collection.find_one(song)
+
+    def get_next_song_id(self):
+        most_recent_song = self.songs_collection.find_one({}, sort=[(u"_id", -1)])
+        if most_recent_song is not None:
+            new_id = most_recent_song['_id'] + 1
+        else:
+            new_id = 0
+        return new_id
+
+    def insert_one_song(self, song):
+        insert_song_result = self.songs_collection.insert_one(song)
+        return insert_song_result.inserted_id
 
     def get_client(self):
         print("getting client...")
@@ -438,8 +457,7 @@ def main(insert_into_database=True):
     audio_search = AudioSearch(audio_prints_db=audio_prints_db)
     mp3_filepaths = get_mp3_filepaths_from_directory()
     if insert_into_database:
-        audio_search.insert_mp3s_fingerprints_into_database(audio_prints_db.fingerprints_collection, mp3_filepaths,
-                                                            audio_prints_db.songs_collection)
+        audio_search.insert_mp3s_fingerprints_into_database(mp3_filepaths)
     else:
         audio_search.measure_performance_of_multiple_snrs_and_mp3s(audio_prints_db.fingerprints_collection,
                                                                    mp3_filepaths,
