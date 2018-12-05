@@ -13,6 +13,7 @@ from mutagen.easyid3 import EasyID3
 from audio_search_dbs import DuplicateKeyError
 from mongo_audio_print_db import MongoAudioPrintDB
 # TODO conditional imports
+from ram_audio_print_db import RamAudioPrintDB
 from shazam_plots import plot_recognition_rate, plot_spectrogram_and_peak_subplots, start_hist_subplots, \
     make_next_hist_subplot, show_hist_plot, plot_hist_of_stks, plot_show, plot_scatter_of_fingerprint_offsets
 
@@ -389,7 +390,10 @@ def get_mp3_filepaths_from_directory(directory='C:/Users\Luke\Downloads/Disaster
 
 
 def main(insert_into_database=False):
-    audio_prints_db = MongoAudioPrintDB()
+    # audio_prints_db = MongoAudioPrintDB()
+    # hashtable = [None for _ in range((2 ** 16) - 1)]
+    # hashtable = np.empty(20, dtype=object)
+    audio_prints_db = RamAudioPrintDB()
     audio_search = AudioSearch(audio_prints_db=audio_prints_db)
     mp3_filepaths = get_mp3_filepaths_from_directory()
     if insert_into_database:
