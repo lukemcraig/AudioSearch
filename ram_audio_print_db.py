@@ -10,7 +10,7 @@ class RamAudioPrintDB(AudioPrintsDB):
         pass
 
     def load_fingerprint_table(self):
-        fingerprint_hashtable = {}
+        fingerprints_hashtable = {}
         with open('mongoexport/audioprintsDB.fingerprints.json', mode='r') as f:
             for line in f:
                 fingerprint = json.loads(line)
@@ -18,14 +18,14 @@ class RamAudioPrintDB(AudioPrintsDB):
                 hash_ = fingerprint.pop("hash")
                 # fingerprint_tuple = (fingerprint['offset'], fingerprint['songID'])
                 try:
-                    fingerprint_hashtable[hash_].append(fingerprint)
+                    fingerprints_hashtable[hash_].append(fingerprint)
                 except KeyError:
-                    fingerprint_hashtable[hash_] = [fingerprint]
-        print(len(fingerprint_hashtable), "unique fingerprint hashes")
+                    fingerprints_hashtable[hash_] = [fingerprint]
+        print(len(fingerprints_hashtable), "unique fingerprint hashes")
         # this is not the actual size
-        hashtable_size = sys.getsizeof(fingerprint_hashtable)
+        hashtable_size = sys.getsizeof(fingerprints_hashtable)
         print(hashtable_size, "bytes")
-        return fingerprint_hashtable
+        return fingerprints_hashtable
 
     def load_song_table(self):
         songs_hashtable = {}
@@ -44,6 +44,15 @@ class RamAudioPrintDB(AudioPrintsDB):
         return songs_hashtable, songtitles_hashtable
 
     def insert_one_fingerprint(self, fingerprint):
+        hash_ = fingerprint.pop("hash")
+        try:
+            existing_fingerprints = self.fingerprints_hashtable[hash_]
+            for ef in existing_fingerprints:
+                if ef == fingerprint:
+                    raise DuplicateKeyError
+            existing_fingerprints.append(fingerprint)
+        except KeyError:
+            self.fingerprints_hashtable[hash_] = [fingerprint]
         return
 
     def find_one_song(self, song):

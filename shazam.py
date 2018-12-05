@@ -390,10 +390,8 @@ def get_mp3_filepaths_from_directory(directory='C:/Users\Luke\Downloads/Disaster
     return mp3_filepaths
 
 
-def main(insert_into_database=False):
+def main(insert_into_database=True):
     # audio_prints_db = MongoAudioPrintDB()
-    # hashtable = [None for _ in range((2 ** 16) - 1)]
-    # hashtable = np.empty(20, dtype=object)
     audio_prints_db = RamAudioPrintDB()
     audio_search = AudioSearch(audio_prints_db=audio_prints_db)
     mp3_filepaths = get_mp3_filepaths_from_directory()
