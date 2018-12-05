@@ -37,9 +37,12 @@ def plot_spectrogram(Sxx, f, t, alpha=1.0):
 
 def plot_recognition_rate(recognition_rate, snrs_to_test):
     plt.style.use('ggplot')
-    plt.plot(snrs_to_test, recognition_rate)
-    plt.xlabel('Signal to Noise Ratio (dBFS)')
-    plt.ylabel('Songs Identified')
+    plt.plot(snrs_to_test, recognition_rate, marker="o")
+    plt.xticks(snrs_to_test)
+    plt.ylim(0, 100)
+    plt.yticks([0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100])
+    plt.xlabel('Signal to Noise Ratio (dB)')
+    plt.ylabel('Recognition Rate')
     # plt.gca().xaxis.set_major_formatter(plticker.FormatStrFormatter('%d dBFS'))
     plt.gca().yaxis.set_major_formatter(plticker.FormatStrFormatter('%d %%'))
     plt.show()

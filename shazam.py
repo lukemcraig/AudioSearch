@@ -35,10 +35,10 @@ def main(insert_into_database=False, do_plotting=False):
         mp3_filepaths.append(filepath)
 
     # mp3_filepaths = [mp3_filepaths[i] for i in [1, 2, 6, 7, 9, 14, 16, 18, 31, 29, 36]]
-    # mp3_filepaths = [mp3_filepaths[i] for i in [31]]
+    # mp3_filepaths = [mp3_filepaths[i] for i in [31, 36]]
 
-    # snrs_to_test = [15, 12, 9, 6, 3, 0, -3, -9, -12, -15]
-    snrs_to_test = [-30, -15]
+    snrs_to_test = [-15, -12, -9, -6, -3, 0, 3, 6, 9, 12, 15]
+    # snrs_to_test = [-30, -15]
     performance_results = np.zeros((len(mp3_filepaths), len(snrs_to_test)), dtype=bool)
 
     for mp3_i, mp3_filepath in enumerate(mp3_filepaths):
