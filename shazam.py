@@ -10,6 +10,7 @@ import pandas as pd
 import pymongo
 import librosa
 from mutagen.easyid3 import EasyID3
+from abc import ABC, abstractmethod
 
 # TODO conditional imports
 from shazam_plots import plot_recognition_rate, plot_spectrogram_and_peak_subplots, start_hist_subplots, \
@@ -389,6 +390,23 @@ class AudioSearch:
         return peak_f, second_peak_f, time_delta
 
 
+class AudioPrintsDB(ABC):
+    @abstractmethod
+    def do_something(self):
+        return
+
+
+class MongoAudioPrintDB(AudioPrintsDB):
+    def __init__(self):
+        self.client = get_client()
+        self.fingerprints_collection = self.client.audioprintsDB.fingerprints
+        self.songs_collection = self.client.audioprintsDB.songs
+        pass
+
+    def do_something(self):
+        pass
+
+
 def get_client():
     print("getting client...")
     client = pymongo.MongoClient('mongodb://localhost:27017')
@@ -410,9 +428,9 @@ def main(insert_into_database=True):
     fingerprints_collection = client.audioprintsDB.fingerprints
     songs_collection = client.audioprintsDB.songs
 
-    audio_search = AudioSearch()
     mp3_filepaths = get_mp3_filepaths_from_directory()
 
+    audio_search = AudioSearch()
     if insert_into_database:
         audio_search.insert_mp3s_fingerprints_into_database(fingerprints_collection, mp3_filepaths, songs_collection)
     else:
