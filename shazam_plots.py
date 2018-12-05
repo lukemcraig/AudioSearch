@@ -101,9 +101,9 @@ def show_hist_plot(max_hist_song, song_doc):
     plt.show()
 
 
-def plot_hist_of_stks(stks_in_songID):
-    hist_mpl, bin_edges_mpl, patches = plt.hist(stks_in_songID.values, bins='auto', rwidth=.7)
-    # plt.bar(unique, unique_counts)
+def plot_hist_of_stks(unique, filtered_hist, alpha=1):
+    # hist_mpl, bin_edges_mpl, patches = plt.hist(stks_in_songID.values, bins='auto', rwidth=.7)
+    plt.bar(unique, filtered_hist, alpha=alpha)
     return
 
 

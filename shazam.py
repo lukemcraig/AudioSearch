@@ -21,7 +21,7 @@ time_find_spec_peaks = True & time_functions
 time_n_repeats = 1000
 
 
-def main(insert_into_database=False, do_plotting=False):
+def main(insert_into_database=False, do_plotting=True):
     query_database = not insert_into_database
 
     client = get_client()
@@ -148,14 +148,22 @@ def try_to_match_clip_to_database(do_plotting, filepath, fingerprints, fingerpri
         if do_plotting:
             make_next_hist_subplot(ax, i, n_possible_songs, song_id)
         stks_in_songID = df_fingerprint_matches.loc[song_id]
-        # TODO clustering histogram?
-        # unique, unique_counts = np.unique(stks_in_songID.values, return_counts=True)
-        hist, bin_edges = np.histogram(stks_in_songID.values, bins='auto')
-        if max(hist) > max_hist_peak:
-            max_hist_peak = max(hist)
+        # make a histogram with bin width of 1
+        unique, unique_counts = np.unique(stks_in_songID.values, return_counts=True)
+        unique_max = unique.max()
+        unique_min = unique.min()
+        hist = np.zeros(1 + unique_max - unique_min)
+        hist[unique - unique_min] = unique_counts
+        # smooth histogram for the sake of "clustered peak detection"
+        filtered_hist = scipy.ndimage.filters.uniform_filter1d(hist, size=2, mode='constant')
+        max_filtered_hist = max(filtered_hist)
+        if max_filtered_hist > max_hist_peak:
+            max_hist_peak = max_filtered_hist
             max_hist_song = song_id
         if do_plotting:
-            plot_hist_of_stks(stks_in_songID)
+            plot_hist_of_stks(np.arange(unique_min, unique_max + 1), hist)
+            # overlay the filtered histogram
+            plot_hist_of_stks(np.arange(unique_min, unique_max + 1), filtered_hist, alpha=0.5)
     # TODO false positives?
     correct_match = max_hist_song == song_doc['_id']
     print("correct_match=", correct_match)
