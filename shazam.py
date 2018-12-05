@@ -133,41 +133,25 @@ def try_to_match_clip_to_database(do_plotting, filepath, fingerprints, fingerpri
     if song_doc is None:
         raise Exception(filepath + "needs to be inserted into the DB first!")
     # print("querying database")
-    stks = []
-    db_fp_song_ids = []
-    db_fp_offsets = []
-    local_fp_offsets = []
-    for fingerprint_i, fingerprint in enumerate(fingerprints):
-        cursor = fingerprints_collection.find({'hash': fingerprint['hash']}, projection={"_id": 0, "hash": 0})
-        # cursor_listed = list(cursor)
-        # df_fingerprint_matches = pd.DataFrame(cursor_listed)
-        for db_fp in cursor:
-            db_fp_song_id = db_fp['songID']
-            db_fp_song_ids.append(db_fp_song_id)
-            # print(db_fp_song_id)
-            db_fp_offset = db_fp['offset']
-            db_fp_offsets.append(db_fp_offset)
+    df_fingerprint_matches = get_df_of_fingerprint_offsets(do_plotting, fingerprints, fingerprints_collection)
 
-            local_fp_offset = fingerprint['offset']
-            local_fp_offsets.append(local_fp_offset)
-
-            if do_plotting:
-                plot_scatter_of_fingerprint_offsets(fingerprint_i, db_fp_offset, db_fp_song_id, local_fp_offset,
-                                                    len(fingerprints))
-
-            stk = db_fp_offset - local_fp_offset
-            stks.append(stk)
-    if do_plotting:
-        plot_show()
-    df_fingerprint_matches = pd.DataFrame({
-        "songID": db_fp_song_ids,
-        "stk": stks
-    })
-    df_fingerprint_matches.set_index('songID', inplace=True)
     index_set = set(df_fingerprint_matches.index)
     n_possible_songs = len(index_set)
     if n_possible_songs == 0:
-        return False
+        # there were no fingerprints found, so we return an incorrect match result
+        return -1, False
+
+    max_hist_song = get_the_most_likely_song_from_all_the_histograms(df_fingerprint_matches, do_plotting, index_set,
+                                                                     n_possible_songs)
+    # TODO false positives?
+    correct_match = max_hist_song == song_doc['_id']
+    print("correct_match=", correct_match)
+    if do_plotting:
+        show_hist_plot(max_hist_song, song_doc)
+    return max_hist_song, correct_match
+
+
+def get_the_most_likely_song_from_all_the_histograms(df_fingerprint_matches, do_plotting, index_set, n_possible_songs):
     if do_plotting:
         ax = start_hist_subplots(n_possible_songs)
     max_hist_peak = 0
@@ -192,12 +176,40 @@ def try_to_match_clip_to_database(do_plotting, filepath, fingerprints, fingerpri
             plot_hist_of_stks(np.arange(unique_min, unique_max + 1), hist)
             # overlay the filtered histogram
             plot_hist_of_stks(np.arange(unique_min, unique_max + 1), filtered_hist, alpha=0.5)
-    # TODO false positives?
-    correct_match = max_hist_song == song_doc['_id']
-    print("correct_match=", correct_match)
+    return max_hist_song
+
+
+def get_df_of_fingerprint_offsets(do_plotting, fingerprints, fingerprints_collection):
+    stks = []
+    db_fp_song_ids = []
+    db_fp_offsets = []
+    local_fp_offsets = []
+    for fingerprint_i, fingerprint in enumerate(fingerprints):
+        cursor = fingerprints_collection.find({'hash': fingerprint['hash']}, projection={"_id": 0, "hash": 0})
+        for db_fp in cursor:
+            db_fp_song_id = db_fp['songID']
+            db_fp_song_ids.append(db_fp_song_id)
+            # print(db_fp_song_id)
+            db_fp_offset = db_fp['offset']
+            db_fp_offsets.append(db_fp_offset)
+
+            local_fp_offset = fingerprint['offset']
+            local_fp_offsets.append(local_fp_offset)
+
+            if do_plotting:
+                plot_scatter_of_fingerprint_offsets(fingerprint_i, db_fp_offset, db_fp_song_id, local_fp_offset,
+                                                    len(fingerprints))
+
+            stk = db_fp_offset - local_fp_offset
+            stks.append(stk)
     if do_plotting:
-        show_hist_plot(max_hist_song, song_doc)
-    return max_hist_song, correct_match
+        plot_show()
+    df_fingerprint_matches = pd.DataFrame({
+        "songID": db_fp_song_ids,
+        "stk": stks
+    })
+    df_fingerprint_matches.set_index('songID', inplace=True)
+    return df_fingerprint_matches
 
 
 def insert_one_song_into_database(metadata, fingerprints, fingerprints_collection, songs_collection):
