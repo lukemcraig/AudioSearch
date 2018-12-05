@@ -7,43 +7,37 @@ from collections import OrderedDict
 class RamAudioPrintDB(AudioPrintsDB):
     def __init__(self):
         self.fingerprints_hashtable = {}
-        self.load_fingerprint_table()
+        self.load_fingerprint_table_from_json()
 
         self.songs_hashtable = OrderedDict()
         self.songtitles_hashtable = {}
-        self.load_song_table()
+        self.load_song_tables_from_json()
         pass
 
-    def load_fingerprint_table(self):
+    def load_fingerprint_table_from_json(self):
         with open('mongoexport/audioprintsDB.fingerprints.json', mode='r') as f:
             for line in f:
                 fingerprint = json.loads(line)
                 del fingerprint["_id"]
-                hash_ = fingerprint.pop("hash")
-                # fingerprint_tuple = (fingerprint['offset'], fingerprint['songID'])
                 try:
-                    self.fingerprints_hashtable[hash_].append(fingerprint)
-                except KeyError:
-                    self.fingerprints_hashtable[hash_] = [fingerprint]
+                    self.insert_one_fingerprint(fingerprint)
+                except DuplicateKeyError:
+                    continue
         print(len(self.fingerprints_hashtable), "unique fingerprint hashes")
         # this is not the actual size
         hashtable_size = sys.getsizeof(self.fingerprints_hashtable)
         print(hashtable_size, "bytes")
         return
 
-    def load_song_table(self):
+    def load_song_tables_from_json(self):
         with open('mongoexport/audioprintsDB.songs.json', mode='r') as f:
             for line in f:
                 song = json.loads(line)
-                song_id = song.pop("_id")
-                song_tuple = (song['artist'], song['album'], song['title'], song['track_length_s'])
-                try:
-                    self.songtitles_hashtable[song['title']].append(song_id)
-                except KeyError:
-                    self.songtitles_hashtable[song['title']] = [song_id]
-                self.songs_hashtable[song_id] = song_tuple
+                self.insert_one_song(song)
         print(len(self.songs_hashtable), "songs")
         return
+
+    #     TODO saving the db to disk
 
     def insert_one_fingerprint(self, fingerprint):
         hash_ = fingerprint.pop("hash")
@@ -93,4 +87,3 @@ class RamAudioPrintDB(AudioPrintsDB):
             return self.fingerprints_hashtable[fingerprint['hash']]
         except KeyError:
             return None
-#     TODO saving the db to disk
