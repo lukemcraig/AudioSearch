@@ -36,13 +36,14 @@ def main(insert_into_database=True, do_plotting=False):
         mp3_filepaths.append(filepath)
 
     if insert_into_database:
-        insert_into_database_method(directory, do_plotting, fingerprints_collection, mp3_filepaths, songs_collection)
+        insert_mp3s_into_database(directory, do_plotting, fingerprints_collection, mp3_filepaths, songs_collection)
     else:
-        query_database_method(directory, do_plotting, fingerprints_collection, mp3_filepaths, songs_collection)
+        measure_performance_of_multiple_snrs_and_mp3s(directory, do_plotting, fingerprints_collection, mp3_filepaths,
+                                                      songs_collection)
     return
 
 
-def insert_into_database_method(directory, do_plotting, fingerprints_collection, mp3_filepaths, songs_collection):
+def insert_mp3s_into_database(directory, do_plotting, fingerprints_collection, mp3_filepaths, songs_collection):
     for mp3_i, mp3_filepath in enumerate(mp3_filepaths):
         print(mp3_filepath)
         data, rate, metadata = load_audio_data(directory + mp3_filepath)
@@ -52,7 +53,8 @@ def insert_into_database_method(directory, do_plotting, fingerprints_collection,
     return
 
 
-def query_database_method(directory, do_plotting, fingerprints_collection, mp3_filepaths, songs_collection):
+def measure_performance_of_multiple_snrs_and_mp3s(directory, do_plotting, fingerprints_collection, mp3_filepaths,
+                                                  songs_collection):
     # mp3_filepaths = [mp3_filepaths[i] for i in [1, 2, 6, 7, 9, 14, 16, 18, 31, 29, 36]]
     # mp3_filepaths = [mp3_filepaths[i] for i in [31, 36]]
     snrs_to_test = [-15, -12, -9, -6, -3, 0, 3, 6, 9, 12, 15]
@@ -64,22 +66,37 @@ def query_database_method(directory, do_plotting, fingerprints_collection, mp3_f
         data_subset = get_test_subset(data)
 
         for snr_i, snr_dbfs in enumerate(snrs_to_test):
-            data_and_noise = add_noise(data_subset, desired_snr_db=snr_dbfs)
-
-            if time_add_noise:
-                avg_time_add_noise = time_a_function(lambda: add_noise(data_subset, desired_snr_db=snr_dbfs))
-                print("add_noise() took", '{0:.2f}'.format(avg_time_add_noise * 1000), "ms")
-
-            fingerprints = get_fingerprints_from_audio(data_and_noise, rate, do_plotting)
-            correct_match = try_to_match_clip_to_database(do_plotting, mp3_filepath, fingerprints,
-                                                          fingerprints_collection,
-                                                          metadata, songs_collection)
+            correct_match, predicted_song_id = add_noise_and_predict_one_clip(data_subset, do_plotting,
+                                                                              fingerprints_collection, metadata,
+                                                                              mp3_filepath, rate, snr_dbfs,
+                                                                              songs_collection)
             performance_results[mp3_i, snr_i] = correct_match
 
     recognition_rate = performance_results.mean(axis=0) * 100.0
     if do_plotting or True:
         plot_recognition_rate(recognition_rate, snrs_to_test)
     return
+
+
+def add_noise_and_predict_one_clip(data_subset, do_plotting, fingerprints_collection, metadata, mp3_filepath, rate,
+                                   snr_dbfs, songs_collection):
+    data_and_noise = add_noise(data_subset, desired_snr_db=snr_dbfs)
+    if time_add_noise:
+        avg_time_add_noise = time_a_function(lambda: add_noise(data_subset, desired_snr_db=snr_dbfs))
+        print("add_noise() took", '{0:.2f}'.format(avg_time_add_noise * 1000), "ms")
+    predicted_song_id, correct_match = predict_one_audio_clip(data_and_noise, do_plotting,
+                                                              fingerprints_collection, metadata, mp3_filepath,
+                                                              rate, songs_collection)
+    return correct_match, predicted_song_id
+
+
+def predict_one_audio_clip(data_and_noise, do_plotting, fingerprints_collection, metadata, mp3_filepath, rate,
+                           songs_collection):
+    fingerprints = get_fingerprints_from_audio(data_and_noise, rate, do_plotting)
+    predicted_song_id, correct_match = try_to_match_clip_to_database(do_plotting, mp3_filepath, fingerprints,
+                                                                     fingerprints_collection,
+                                                                     metadata, songs_collection)
+    return predicted_song_id, correct_match
 
 
 def time_a_function(func_lambda):
@@ -102,6 +119,7 @@ def get_fingerprints_from_audio(data, rate, do_plotting):
         print("find_spectrogram_peaks() took", '{0:.2f}'.format(avg_time * 1000), "ms")
     if do_plotting:
         plot_spectrogram_and_peak_subplots(Sxx, f, max_filter, max_filter_size, peak_locations, t)
+
     fingerprints = get_fingerprints_from_peaks(len(f) - 1, f_step, peak_locations, len(t) - 1, t_step)
     return fingerprints
 
@@ -179,7 +197,7 @@ def try_to_match_clip_to_database(do_plotting, filepath, fingerprints, fingerpri
     print("correct_match=", correct_match)
     if do_plotting:
         show_hist_plot(max_hist_song, song_doc)
-    return correct_match
+    return max_hist_song, correct_match
 
 
 def insert_one_song_into_database(metadata, fingerprints, fingerprints_collection, songs_collection):
