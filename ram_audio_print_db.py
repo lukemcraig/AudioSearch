@@ -16,11 +16,11 @@ class RamAudioPrintDB(AudioPrintsDB):
                 fingerprint = json.loads(line)
                 del fingerprint["_id"]
                 hash_ = fingerprint.pop("hash")
-                fingerprint_tuple = (fingerprint['offset'], fingerprint['songID'])
+                # fingerprint_tuple = (fingerprint['offset'], fingerprint['songID'])
                 try:
-                    fingerprint_hashtable[hash_].append(fingerprint_tuple)
+                    fingerprint_hashtable[hash_].append(fingerprint)
                 except KeyError:
-                    fingerprint_hashtable[hash_] = [fingerprint_tuple]
+                    fingerprint_hashtable[hash_] = [fingerprint]
         print(len(fingerprint_hashtable), "unique fingerprint hashes")
         # this is not the actual size
         hashtable_size = sys.getsizeof(fingerprint_hashtable)
@@ -53,8 +53,8 @@ class RamAudioPrintDB(AudioPrintsDB):
             if song['artist'] == possible_song[0]:
                 if song['album'] == possible_song[1]:
                     if song['track_length_s'] == possible_song[3]:
-                        song_doc = {"_id": 0}
-                        return song_doc
+                        song['_id'] = possible_song_id
+                        return song
         return None
 
     def get_next_song_id(self):
@@ -64,4 +64,7 @@ class RamAudioPrintDB(AudioPrintsDB):
         return
 
     def find_db_fingerprints_with_hash_key(self, fingerprint):
-        return
+        try:
+            return self.fingerprints_hashtable[fingerprint['hash']]
+        except KeyError:
+            return None

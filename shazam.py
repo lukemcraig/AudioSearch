@@ -156,22 +156,23 @@ class AudioSearch:
         local_fp_offsets = []
         for fingerprint_i, fingerprint in enumerate(fingerprints):
             db_fp_iterator = self.audio_prints_db.find_db_fingerprints_with_hash_key(fingerprint)
-            for db_fp in db_fp_iterator:
-                db_fp_song_id = db_fp['songID']
-                db_fp_song_ids.append(db_fp_song_id)
-                # print(db_fp_song_id)
-                db_fp_offset = db_fp['offset']
-                db_fp_offsets.append(db_fp_offset)
+            if db_fp_iterator is not None:
+                for db_fp in db_fp_iterator:
+                    db_fp_song_id = db_fp['songID']
+                    db_fp_song_ids.append(db_fp_song_id)
+                    # print(db_fp_song_id)
+                    db_fp_offset = db_fp['offset']
+                    db_fp_offsets.append(db_fp_offset)
 
-                local_fp_offset = fingerprint['offset']
-                local_fp_offsets.append(local_fp_offset)
+                    local_fp_offset = fingerprint['offset']
+                    local_fp_offsets.append(local_fp_offset)
 
-                if self.do_plotting:
-                    plot_scatter_of_fingerprint_offsets(fingerprint_i, db_fp_offset, db_fp_song_id, local_fp_offset,
-                                                        len(fingerprints))
+                    if self.do_plotting:
+                        plot_scatter_of_fingerprint_offsets(fingerprint_i, db_fp_offset, db_fp_song_id, local_fp_offset,
+                                                            len(fingerprints))
 
-                stk = db_fp_offset - local_fp_offset
-                stks.append(stk)
+                    stk = db_fp_offset - local_fp_offset
+                    stks.append(stk)
         if self.do_plotting:
             plot_show()
         df_fingerprint_matches = pd.DataFrame({
