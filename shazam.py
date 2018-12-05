@@ -25,7 +25,8 @@ class AudioSearch:
     time_query_peaks_for_target_zone = True & time_functions
     time_n_repeats = 1000
 
-    def __init__(self, do_plotting=False):
+    def __init__(self, audio_prints_db, do_plotting=False):
+        self.audio_prints_db = audio_prints_db
         self.do_plotting = do_plotting
         pass
 
@@ -195,8 +196,9 @@ class AudioSearch:
         for fingerprint in fingerprints:
             fingerprint['songID'] = song_id_in_db
             try:
-                fingerprints_collection.insert_one(fingerprint)
-            except pymongo.errors.DuplicateKeyError:
+                self.audio_prints_db.insert_one_fingerprint(fingerprint)
+            except DuplicateKeyError:
+                # song already exists in db
                 continue
         return
 
@@ -390,28 +392,36 @@ class AudioSearch:
         return peak_f, second_peak_f, time_delta
 
 
+class DuplicateKeyError(Exception):
+    pass
+
+
 class AudioPrintsDB(ABC):
+
     @abstractmethod
-    def do_something(self):
-        return
+    def insert_one_fingerprint(self, fingerprint):
+        pass
 
 
 class MongoAudioPrintDB(AudioPrintsDB):
     def __init__(self):
-        self.client = get_client()
+        self.client = self.get_client()
         self.fingerprints_collection = self.client.audioprintsDB.fingerprints
         self.songs_collection = self.client.audioprintsDB.songs
         pass
 
-    def do_something(self):
-        pass
+    def insert_one_fingerprint(self, fingerprint):
+        try:
+            self.fingerprints_collection.insert_one(fingerprint)
+        except pymongo.errors.DuplicateKeyError:
+            raise DuplicateKeyError
+        return
 
-
-def get_client():
-    print("getting client...")
-    client = pymongo.MongoClient('mongodb://localhost:27017')
-    print("got client")
-    return client
+    def get_client(self):
+        print("getting client...")
+        client = pymongo.MongoClient('mongodb://localhost:27017')
+        print("got client")
+        return client
 
 
 def get_mp3_filepaths_from_directory(directory='C:/Users\Luke\Downloads/Disasterpeace/'):
@@ -424,18 +434,16 @@ def get_mp3_filepaths_from_directory(directory='C:/Users\Luke\Downloads/Disaster
 
 
 def main(insert_into_database=True):
-    client = get_client()
-    fingerprints_collection = client.audioprintsDB.fingerprints
-    songs_collection = client.audioprintsDB.songs
-
+    audio_prints_db = MongoAudioPrintDB()
+    audio_search = AudioSearch(audio_prints_db=audio_prints_db)
     mp3_filepaths = get_mp3_filepaths_from_directory()
-
-    audio_search = AudioSearch()
     if insert_into_database:
-        audio_search.insert_mp3s_fingerprints_into_database(fingerprints_collection, mp3_filepaths, songs_collection)
+        audio_search.insert_mp3s_fingerprints_into_database(audio_prints_db.fingerprints_collection, mp3_filepaths,
+                                                            audio_prints_db.songs_collection)
     else:
-        audio_search.measure_performance_of_multiple_snrs_and_mp3s(fingerprints_collection, mp3_filepaths,
-                                                                   songs_collection)
+        audio_search.measure_performance_of_multiple_snrs_and_mp3s(audio_prints_db.fingerprints_collection,
+                                                                   mp3_filepaths,
+                                                                   audio_prints_db.songs_collection)
     return
 
 
