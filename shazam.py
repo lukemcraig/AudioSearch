@@ -7,11 +7,10 @@ import scipy.ndimage.filters
 import scipy.ndimage.measurements
 import scipy.io.wavfile
 import pandas as pd
-import pymongo
 import librosa
 from mutagen.easyid3 import EasyID3
-from abc import ABC, abstractmethod
 
+from audio_search_dbs import DuplicateKeyError, MongoAudioPrintDB
 # TODO conditional imports
 from shazam_plots import plot_recognition_rate, plot_spectrogram_and_peak_subplots, start_hist_subplots, \
     make_next_hist_subplot, show_hist_plot, plot_hist_of_stks, plot_show, plot_scatter_of_fingerprint_offsets
@@ -377,68 +376,6 @@ class AudioSearch:
         # shift 20 bits
         peak_f = np.right_shift(key, np.uint32(20))
         return peak_f, second_peak_f, time_delta
-
-
-class DuplicateKeyError(Exception):
-    pass
-
-
-class AudioPrintsDB(ABC):
-
-    @abstractmethod
-    def insert_one_fingerprint(self, fingerprint):
-        pass
-
-    def find_one_song(self, song):
-        pass
-
-    def get_next_song_id(self):
-        pass
-
-    def insert_one_song(self, song):
-        pass
-
-    def find_db_fingerprints_with_hash_key(self, fingerprint):
-        pass
-
-
-class MongoAudioPrintDB(AudioPrintsDB):
-    def __init__(self):
-        self.client = self.get_client()
-        self.fingerprints_collection = self.client.audioprintsDB.fingerprints
-        self.songs_collection = self.client.audioprintsDB.songs
-        pass
-
-    def insert_one_fingerprint(self, fingerprint):
-        try:
-            self.fingerprints_collection.insert_one(fingerprint)
-        except pymongo.errors.DuplicateKeyError:
-            raise DuplicateKeyError
-        return
-
-    def find_one_song(self, song):
-        return self.songs_collection.find_one(song)
-
-    def get_next_song_id(self):
-        most_recent_song = self.songs_collection.find_one({}, sort=[(u"_id", -1)])
-        if most_recent_song is not None:
-            new_id = most_recent_song['_id'] + 1
-        else:
-            new_id = 0
-        return new_id
-
-    def insert_one_song(self, song):
-        insert_song_result = self.songs_collection.insert_one(song)
-        return insert_song_result.inserted_id
-
-    def find_db_fingerprints_with_hash_key(self, fingerprint):
-        return self.fingerprints_collection.find({'hash': fingerprint['hash']}, projection={"_id": 0, "hash": 0})
-
-    def get_client(self):
-        print("getting client...")
-        client = pymongo.MongoClient('mongodb://localhost:27017')
-        print("got client")
-        return client
 
 
 def get_mp3_filepaths_from_directory(directory='C:/Users\Luke\Downloads/Disasterpeace/'):
