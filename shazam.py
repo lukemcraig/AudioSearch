@@ -21,7 +21,7 @@ time_find_spec_peaks = True & time_functions
 time_n_repeats = 1000
 
 
-def main(insert_into_database=False, do_plotting=False):
+def main(insert_into_database=True, do_plotting=False):
     query_database = not insert_into_database
 
     client = get_client()
@@ -93,7 +93,7 @@ def get_fingerprints_from_audio(data, rate, do_plotting):
         print("find_spectrogram_peaks() took", '{0:.2f}'.format(avg_time * 1000), "ms")
     if do_plotting:
         plot_spectrogram_and_peak_subplots(Sxx, f, max_filter, max_filter_size, peak_locations, t)
-    fingerprints = get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step)
+    fingerprints = get_fingerprints_from_peaks(len(f) - 1, f_step, peak_locations, len(t) - 1, t_step)
     return fingerprints
 
 
@@ -294,7 +294,7 @@ def find_spectrogram_peaks(Sxx, t_step, f_size_hz=500, t_size_sec=2):
     return peak_locations, max_filter, (t_size, f_size)
 
 
-def get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step):
+def get_fingerprints_from_peaks(f_max, f_step, peak_locations, t_max, t_step):
     # print("get_fingerprints_from_peaks")
     # TODO fan out factor
     fan_out_factor = 10
@@ -314,11 +314,13 @@ def get_fingerprints_from_peaks(f, f_step, peak_locations, t, t_step):
         anchor_f = anchor['f']
 
         zone_time_start = anchor_t + zone_t_offset
-        zone_time_end = min(len(t) - 1, zone_time_start + zone_t_size)
+
+        zone_time_end = min(t_max, zone_time_start + zone_t_size)
 
         zone_freq_start = max(0, anchor_f - (zone_f_size // 2))
-        zone_freq_end = min(len(f) - 1, zone_freq_start + zone_f_size)
-        if zone_freq_end == len(f) - 1:
+
+        zone_freq_end = min(f_max, zone_freq_start + zone_f_size)
+        if zone_freq_end == f_max:
             zone_freq_start = zone_freq_end - zone_f_size
 
         # TODO better way to check the zone (sweep line)
