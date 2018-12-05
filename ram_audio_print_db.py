@@ -1,6 +1,7 @@
 from audio_search_dbs import AudioPrintsDB, DuplicateKeyError
 import json
 import sys
+from collections import OrderedDict
 
 
 class RamAudioPrintDB(AudioPrintsDB):
@@ -28,7 +29,7 @@ class RamAudioPrintDB(AudioPrintsDB):
         return fingerprints_hashtable
 
     def load_song_table(self):
-        songs_hashtable = {}
+        songs_hashtable = OrderedDict()
         songtitles_hashtable = {}
         with open('mongoexport/audioprintsDB.songs.json', mode='r') as f:
             for line in f:
@@ -56,18 +57,25 @@ class RamAudioPrintDB(AudioPrintsDB):
         return
 
     def find_one_song(self, song):
-        matching_titles = self.songtitles_hashtable[song['title']]
-        for possible_song_id in matching_titles:
-            possible_song = self.songs_hashtable[possible_song_id]
-            if song['artist'] == possible_song[0]:
-                if song['album'] == possible_song[1]:
-                    if song['track_length_s'] == possible_song[3]:
-                        song['_id'] = possible_song_id
-                        return song
+        try:
+            matching_titles = self.songtitles_hashtable[song['title']]
+            for possible_song_id in matching_titles:
+                possible_song = self.songs_hashtable[possible_song_id]
+                if song['artist'] == possible_song[0]:
+                    if song['album'] == possible_song[1]:
+                        if song['track_length_s'] == possible_song[3]:
+                            song['_id'] = possible_song_id
+                            return song
+        except KeyError:
+            return None
         return None
 
     def get_next_song_id(self):
-        return
+        try:
+            most_recent_song_id = next(reversed(self.songs_hashtable))
+            return most_recent_song_id + 1
+        except StopIteration:
+            return 0
 
     def insert_one_song(self, song):
         return
