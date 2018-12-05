@@ -78,10 +78,19 @@ class RamAudioPrintDB(AudioPrintsDB):
             return 0
 
     def insert_one_song(self, song):
-        return
+        song_id = song.pop("_id")
+        song_tuple = (song['artist'], song['album'], song['title'], song['track_length_s'])
+        try:
+            self.songtitles_hashtable[song['title']].append(song_id)
+        except KeyError:
+            self.songtitles_hashtable[song['title']] = [song_id]
+        self.songs_hashtable[song_id] = song_tuple
+        return song_id
 
     def find_db_fingerprints_with_hash_key(self, fingerprint):
         try:
             return self.fingerprints_hashtable[fingerprint['hash']]
         except KeyError:
             return None
+
+#     TODO saving the db to disk
