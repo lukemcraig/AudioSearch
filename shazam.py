@@ -11,9 +11,10 @@ import librosa
 from mutagen.easyid3 import EasyID3
 
 from audio_search_dbs import DuplicateKeyError
-from mongo_audio_print_db import MongoAudioPrintDB
 # TODO conditional imports
+from mongo_audio_print_db import MongoAudioPrintDB
 from ram_audio_print_db import RamAudioPrintDB
+
 from shazam_plots import plot_recognition_rate, plot_spectrogram_and_peak_subplots, start_hist_subplots, \
     make_next_hist_subplot, show_hist_plot, plot_hist_of_stks, plot_show, plot_scatter_of_fingerprint_offsets
 
@@ -24,7 +25,9 @@ class AudioSearch:
     time_find_spec_peaks = True & time_functions
     time_get_target_zone = True & time_functions
     time_query_peaks_for_target_zone = True & time_functions
-    time_n_repeats = 1000
+    time_get_df_of_fingerprint_offsets = True & time_functions
+
+    time_n_repeats = 100
 
     def __init__(self, audio_prints_db, do_plotting=False):
         self.audio_prints_db = audio_prints_db
@@ -106,6 +109,10 @@ class AudioSearch:
             raise Exception(filepath + "needs to be inserted into the DB first!")
         # print("querying database")
         df_fingerprint_matches = self.get_df_of_fingerprint_offsets(fingerprints)
+
+        if self.time_get_df_of_fingerprint_offsets:
+            avg_time = self.time_a_function(lambda: self.get_df_of_fingerprint_offsets(fingerprints))
+            print("get_df_of_fingerprint_offsets() took", '{0:.2f}'.format(avg_time * 1000), "ms")
 
         index_set = set(df_fingerprint_matches.index)
         n_possible_songs = len(index_set)
@@ -390,7 +397,7 @@ def get_mp3_filepaths_from_directory(directory='C:/Users\Luke\Downloads/Disaster
     return mp3_filepaths
 
 
-def main(insert_into_database=True):
+def main(insert_into_database=False):
     # audio_prints_db = MongoAudioPrintDB()
     audio_prints_db = RamAudioPrintDB()
     audio_search = AudioSearch(audio_prints_db=audio_prints_db)
