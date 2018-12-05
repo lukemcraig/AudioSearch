@@ -16,16 +16,6 @@ from shazam_plots import plot_recognition_rate, plot_spectrogram_and_peak_subplo
     make_next_hist_subplot, show_hist_plot, plot_hist_of_stks, plot_show, plot_scatter_of_fingerprint_offsets
 
 
-def get_mp3_filepaths_from_directory():
-    directory = 'C:/Users\Luke\Downloads/Disasterpeace/'
-    mp3_filepaths = []
-    for filepath in os.listdir(directory):
-        if filepath[-4:] != '.mp3':
-            continue
-        mp3_filepaths.append(directory + filepath)
-    return mp3_filepaths
-
-
 class AudioSearch:
     time_functions = False
     time_add_noise = True & time_functions
@@ -38,18 +28,7 @@ class AudioSearch:
         self.do_plotting = do_plotting
         pass
 
-    def old_main(self, mp3_filepaths, insert_into_database=False):
-        client = self.get_client()
-        fingerprints_collection = client.audioprintsDB.fingerprints
-        songs_collection = client.audioprintsDB.songs
-
-        if insert_into_database:
-            self.insert_mp3s_into_database(fingerprints_collection, mp3_filepaths, songs_collection)
-        else:
-            self.measure_performance_of_multiple_snrs_and_mp3s(fingerprints_collection, mp3_filepaths, songs_collection)
-        return
-
-    def insert_mp3s_into_database(self, fingerprints_collection, mp3_filepaths, songs_collection):
+    def insert_mp3s_fingerprints_into_database(self, fingerprints_collection, mp3_filepaths, songs_collection):
         for mp3_i, mp3_filepath in enumerate(mp3_filepaths):
             print(mp3_filepath)
             data, rate, metadata = self.load_audio_data(mp3_filepath)
@@ -280,12 +259,6 @@ class AudioSearch:
     def get_rms_linear(self, data):
         return np.sqrt(np.mean(np.square(data)))
 
-    def get_client(self):
-        print("getting client...")
-        client = pymongo.MongoClient('mongodb://localhost:27017')
-        print("got client")
-        return client
-
     def load_audio_data(self, filepath):
         print("loading audio")
         desired_rate = 8000
@@ -416,10 +389,35 @@ class AudioSearch:
         return peak_f, second_peak_f, time_delta
 
 
-def main():
+def get_client():
+    print("getting client...")
+    client = pymongo.MongoClient('mongodb://localhost:27017')
+    print("got client")
+    return client
+
+
+def get_mp3_filepaths_from_directory(directory='C:/Users\Luke\Downloads/Disasterpeace/'):
+    mp3_filepaths = []
+    for filepath in os.listdir(directory):
+        if filepath[-4:] != '.mp3':
+            continue
+        mp3_filepaths.append(directory + filepath)
+    return mp3_filepaths
+
+
+def main(insert_into_database=True):
+    client = get_client()
+    fingerprints_collection = client.audioprintsDB.fingerprints
+    songs_collection = client.audioprintsDB.songs
+
     audio_search = AudioSearch()
     mp3_filepaths = get_mp3_filepaths_from_directory()
-    audio_search.old_main(mp3_filepaths)
+
+    if insert_into_database:
+        audio_search.insert_mp3s_fingerprints_into_database(fingerprints_collection, mp3_filepaths, songs_collection)
+    else:
+        audio_search.measure_performance_of_multiple_snrs_and_mp3s(fingerprints_collection, mp3_filepaths,
+                                                                   songs_collection)
     return
 
 
