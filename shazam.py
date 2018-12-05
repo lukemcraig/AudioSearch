@@ -21,7 +21,7 @@ time_find_spec_peaks = True & time_functions
 time_n_repeats = 1000
 
 
-def main(insert_into_database=False, do_plotting=True):
+def main(insert_into_database=False, do_plotting=False):
     query_database = not insert_into_database
 
     client = get_client()
@@ -37,7 +37,8 @@ def main(insert_into_database=False, do_plotting=True):
     # mp3_filepaths = [mp3_filepaths[i] for i in [1, 2, 6, 7, 9, 14, 16, 18, 31, 29, 36]]
     # mp3_filepaths = [mp3_filepaths[i] for i in [31]]
 
-    snrs_to_test = [15, 12, 9, 6, 3, 0, -3, -9, -12, -15]
+    # snrs_to_test = [15, 12, 9, 6, 3, 0, -3, -9, -12, -15]
+    snrs_to_test = [-30, -15]
     performance_results = np.zeros((len(mp3_filepaths), len(snrs_to_test)), dtype=bool)
 
     for mp3_i, mp3_filepath in enumerate(mp3_filepaths):
@@ -52,10 +53,10 @@ def main(insert_into_database=False, do_plotting=True):
             data_subset = get_test_subset(data)
 
             for snr_i, snr_dbfs in enumerate(snrs_to_test):
-                data_and_noise = add_noise(data_subset, desired_snr_dbfs=snr_dbfs)
+                data_and_noise = add_noise(data_subset, desired_snr_db=snr_dbfs)
 
                 if time_add_noise:
-                    avg_time_add_noise = time_a_function(lambda: add_noise(data_subset, desired_snr_dbfs=snr_dbfs))
+                    avg_time_add_noise = time_a_function(lambda: add_noise(data_subset, desired_snr_db=snr_dbfs))
                     print("add_noise() took", '{0:.2f}'.format(avg_time_add_noise * 1000), "ms")
 
                 fingerprints = get_fingerprints_from_audio(data_and_noise, rate, do_plotting)
@@ -207,34 +208,42 @@ def get_test_subset(data):
     return data
 
 
-def add_noise(data, desired_snr_dbfs):
+def add_noise(data, desired_snr_db):
     random = np.random.RandomState(42)
     # TODO real noise audio
     white_noise = (random.random_sample(len(data)) * 2) - 1
+
     rms_signal = get_rms_linear(data)
     rms_noise = get_rms_linear(white_noise)
-    snr = rms_signal / rms_noise
 
-    desired_nsr_dbfs = -desired_snr_dbfs
-    desired_nsr_linear = dbfs_to_linear(desired_nsr_dbfs)
-    white_noise_adjusted = white_noise * snr * desired_nsr_linear
+    desired_snr_linear = db_to_linear(desired_snr_db)
+    adjustment = rms_signal / (rms_noise * desired_snr_linear)
+    white_noise_adjusted = white_noise * adjustment
+
+    # snr = rms_signal / rms_noise
+    # desired_nsr_dbfs = -desired_snr_dbfs
+    # desired_nsr_linear = dbfs_to_linear(desired_nsr_dbfs)
+    # white_noise_adjusted = white_noise * snr * desired_nsr_linear
     # TODO test this, it's not right:
-    actual_snr_dbfs = convert_to_dbfs(rms_signal / get_rms_linear(white_noise_adjusted))
+    rms_noise_adjusted = get_rms_linear(white_noise_adjusted)
+    actual_snr_linear = rms_signal / rms_noise_adjusted
+    actual_snr_db = convert_to_db(actual_snr_linear)
+    np.testing.assert_almost_equal(actual=actual_snr_db, desired=desired_snr_db)
     return data + white_noise_adjusted
 
 
-def dbfs_to_linear(snr):
-    return np.exp(snr / 20)
+def db_to_linear(db_values):
+    return 10 ** (db_values / 20)
 
 
 def get_rms_dbfs_aes17(data):
     rms_linear = get_rms_linear(data)
-    rms_dbfs_aes17 = convert_to_dbfs(rms_linear) + 3
+    rms_dbfs_aes17 = convert_to_db(rms_linear) + 3
     return rms_dbfs_aes17
 
 
-def convert_to_dbfs(rms_linear):
-    return 20 * np.log10(rms_linear)
+def convert_to_db(linear_values):
+    return 20 * np.log10(linear_values)
 
 
 def get_rms_linear(data):
