@@ -313,23 +313,16 @@ def get_fingerprints_from_peaks(f_max, f_step, peak_locations, t_max, t_step):
         anchor_t = anchor['t']
         anchor_f = anchor['f']
 
-        zone_time_start = anchor_t + zone_t_offset
-
-        zone_time_end = min(t_max, zone_time_start + zone_t_size)
-
-        zone_freq_start = max(0, anchor_f - (zone_f_size // 2))
-
-        zone_freq_end = min(f_max, zone_freq_start + zone_f_size)
-        if zone_freq_end == f_max:
-            zone_freq_start = zone_freq_end - zone_f_size
+        zone_freq_start, zone_freq_end, zone_time_start, zone_time_end = get_target_zone_bounds(anchor_f, anchor_t,
+                                                                                                f_max, t_max,
+                                                                                                zone_f_size,
+                                                                                                zone_t_offset,
+                                                                                                zone_t_size)
 
         # TODO better way to check the zone (sweep line)
-        time_index = (df_peak_locations['t'] <= zone_time_end) & (df_peak_locations['t'] >= zone_time_start)
-        freq_index = (zone_freq_start <= df_peak_locations['f']) & (df_peak_locations['f'] <= zone_freq_end)
-        zone_index = time_index & freq_index
-        n_pairs = zone_index.sum()
-        paired_df_peak_locations = df_peak_locations[zone_index]
-
+        paired_df_peak_locations = query_dataframe_for_peaks_in_target_zone(df_peak_locations, zone_freq_end,
+                                                                            zone_freq_start, zone_time_end,
+                                                                            zone_time_start)
         for j, second_peak in paired_df_peak_locations.iterrows():
             # print("    ", j, "/", n_pairs)
             second_peak_f = second_peak['f']
@@ -340,6 +333,26 @@ def get_fingerprints_from_peaks(f_max, f_step, peak_locations, t_max, t_step):
             fingerprints.append(fingerprint)
     # df_fingerprints = pd.DataFrame(fingerprints)
     return fingerprints
+
+
+def query_dataframe_for_peaks_in_target_zone(df_peak_locations, zone_freq_end, zone_freq_start, zone_time_end,
+                                             zone_time_start):
+    time_index = (df_peak_locations['t'] <= zone_time_end) & (df_peak_locations['t'] >= zone_time_start)
+    freq_index = (zone_freq_start <= df_peak_locations['f']) & (df_peak_locations['f'] <= zone_freq_end)
+    zone_index = time_index & freq_index
+    n_pairs = zone_index.sum()
+    paired_df_peak_locations = df_peak_locations[zone_index]
+    return paired_df_peak_locations
+
+
+def get_target_zone_bounds(anchor_f, anchor_t, f_max, t_max, zone_f_size, zone_t_offset, zone_t_size):
+    zone_time_start = anchor_t + zone_t_offset
+    zone_time_end = min(t_max, zone_time_start + zone_t_size)
+    zone_freq_start = max(0, anchor_f - (zone_f_size // 2))
+    zone_freq_end = min(f_max, zone_freq_start + zone_f_size)
+    if zone_freq_end == f_max:
+        zone_freq_start = zone_freq_end - zone_f_size
+    return zone_freq_start, zone_freq_end, zone_time_start, zone_time_end
 
 
 def combine_parts_into_key(peak_f, second_peak_f, time_delta):
