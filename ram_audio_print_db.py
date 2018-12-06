@@ -15,7 +15,7 @@ class RamAudioPrintDB(AudioPrintsDB):
         pass
 
     def load_fingerprint_table_from_json(self):
-        with open('mongoexport/audioprintsDB.fingerprints.json', mode='r') as f:
+        with open('mongoexport/small_audioprintsDB.fingerprints.json', mode='r') as f:
             for line in f:
                 fingerprint = json.loads(line)
                 del fingerprint["_id"]
@@ -30,7 +30,7 @@ class RamAudioPrintDB(AudioPrintsDB):
         return
 
     def load_song_tables_from_json(self):
-        with open('mongoexport/audioprintsDB.songs.json', mode='r') as f:
+        with open('mongoexport/small_audioprintsDB.songs.json', mode='r') as f:
             for line in f:
                 song = json.loads(line)
                 self.insert_one_song(song)

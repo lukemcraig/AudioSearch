@@ -5,7 +5,6 @@ import numpy as np
 import scipy.signal
 import scipy.ndimage.filters
 import scipy.ndimage.measurements
-import scipy.io.wavfile
 import pandas as pd
 
 import librosa
