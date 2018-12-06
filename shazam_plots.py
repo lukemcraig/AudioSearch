@@ -39,7 +39,7 @@ def plot_recognition_rate(recognition_rate, snrs_to_test, n_songs):
     plt.style.use('ggplot')
     plt.plot(snrs_to_test, recognition_rate, marker="o")
     plt.xticks(snrs_to_test)
-    plt.ylim(0, 100)
+    plt.ylim(-5, 105)
     plt.yticks([0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100])
     plt.xlabel('Signal to Noise Ratio (dB)')
     plt.ylabel('Recognition Rate')

@@ -486,6 +486,15 @@ class AudioSearch:
         return peak_f, second_peak_f, time_delta
 
 
+def get_mp3_genres(filepath):
+    mp3tags = EasyID3(filepath)
+    try:
+        genres = mp3tags['genre']
+    except KeyError:
+        genres = ['Unknown']
+    return genres
+
+
 def get_mp3_filepaths_from_directory(
         directory='G:\\Users\\Luke\\Music\\iTunes\\iTunes Media\\Music\\A Tribe Called Quest\\Midnight Marauders\\'):
     mp3_filepaths = []
@@ -522,19 +531,34 @@ def get_n_random_mp3s_to_test(audio_search, root_directory, test_size):
 
 
 def get_test_set_and_test(audio_search, root_directory):
-    test_list_json_read_path = 'test_mp3_paths.json'
-    # test_list_json_read_path = None
+    test_list_json_read_path = None
+    # test_list_json_read_path = 'test_mp3_paths_40.json'
     if test_list_json_read_path is not None:
         with open(test_list_json_read_path, 'r')as json_fp:
             mp3_filepaths_to_test = json.load(json_fp)
     else:
-        test_size = 250
+        test_size = 40
         mp3_filepaths_to_test = get_n_random_mp3s_to_test(audio_search, root_directory, test_size)
-        test_list_json_write_path = 'test_mp3_paths.json'
+        test_list_json_write_path = 'test_mp3_paths_40.json'
         with open(test_list_json_write_path, 'w')as json_fp:
             json.dump(mp3_filepaths_to_test, json_fp)
+
+    # TODO plot genre counts?
+    unique_genres, unique_genres_counts = get_distribution_of_genres(mp3_filepaths_to_test)
+    print(unique_genres)
+    print(unique_genres_counts)
+
     audio_search.measure_performance_of_multiple_snrs_and_mp3s(mp3_filepaths_to_test)
     return
+
+
+def get_distribution_of_genres(mp3_filepaths_to_test):
+    genres = []
+    for mp3_path in mp3_filepaths_to_test:
+        mp3_genres = get_mp3_genres(mp3_path)
+        genres += [g for g in mp3_genres if not g.startswith('http')]
+    unique_genres, unique_genres_counts = np.unique(genres, return_counts=True)
+    return unique_genres, unique_genres_counts
 
 
 def insert_mp3s_from_directory_in_random_order(audio_search, root_directory):
