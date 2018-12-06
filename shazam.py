@@ -57,21 +57,8 @@ class AudioSearch:
             self.insert_one_mp3_with_fingerprints_into_database(metadata, fingerprints)
         return
 
-    def measure_performance_of_multiple_snrs_and_mp3s(self, mp3_filepaths):
+    def measure_performance_of_multiple_snrs_and_mp3s(self, usable_mp3s):
         snrs_to_test = [-15, -12, -9, -6, -3, 0, 3, 6, 9, 12, 15]
-        usable_mp3s = []
-        for mp3_i, mp3_filepath in enumerate(mp3_filepaths):
-            try:
-                mp3_metadata = self.get_mp3_metadata(mp3_filepath)
-            except KeyError:
-                # this song doesn't have the required metadata, so we'll just skip it
-                continue
-            _, song_doc = self.get_song_from_db_with_metadata_except_length(mp3_metadata)
-            if song_doc is None:
-                # This song wasn't already in the database
-                continue
-            usable_mp3s.append(mp3_filepath)
-
         print("testing", usable_mp3s, "at", snrs_to_test, "dBs each")
         performance_results = np.zeros((len(usable_mp3s), len(snrs_to_test)), dtype=bool)
         for mp3_i, mp3_filepath in enumerate(usable_mp3s):
@@ -507,7 +494,7 @@ def get_mp3_filepaths_from_directory(
     return mp3_filepaths
 
 
-def main(insert_into_database=False,
+def main(insert_into_database=True,
          root_directory='G:/Users/Luke/Music/iTunes/iTunes Media/Music/'):
     audio_prints_db = MongoAudioPrintDB()
     # audio_prints_db = RamAudioPrintDB()
