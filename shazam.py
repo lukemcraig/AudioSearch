@@ -72,9 +72,10 @@ class AudioSearch:
                 continue
             usable_mp3s.append(mp3_filepath)
 
+        print("testing", usable_mp3s, "at", snrs_to_test, "dBs each")
         performance_results = np.zeros((len(usable_mp3s), len(snrs_to_test)), dtype=bool)
         for mp3_i, mp3_filepath in enumerate(usable_mp3s):
-            print(mp3_filepath)
+            print(mp3_i, mp3_filepath, "/", len(usable_mp3s))
             data, rate, metadata = self.load_audio_data(mp3_filepath)
             data_subset = self.get_test_subset(data, subset_length=15 * rate)
 
@@ -524,13 +525,27 @@ def main(insert_into_database=False,
     else:
         mp3_filepaths_to_test = []
         test_size_to_stop_at = 10
+        # TODO, how to get a wide breadth of test songs instead of the first alphabetical ones
         for directory, _, file_names in os.walk(root_directory):
             mp3_filepaths = [os.path.join(directory, fp) for fp in file_names if fp.endswith('.mp3')]
             if len(mp3_filepaths) > 0:
-                mp3_filepaths_to_test.append(mp3_filepaths[0:2])
-            if len(mp3_filepaths_to_test) > test_size_to_stop_at:
+                for mp3_i, mp3_filepath in enumerate(mp3_filepaths[0:2]):
+                    try:
+                        # TODO refactor this method out of AudioSearch class
+                        mp3_metadata = audio_search.get_mp3_metadata(mp3_filepath)
+                    except KeyError:
+                        # this song doesn't have the required metadata, so we'll just skip it
+                        continue
+                    _, song_doc = audio_search.get_song_from_db_with_metadata_except_length(mp3_metadata)
+                    if song_doc is None:
+                        # This song wasn't already in the database
+                        continue
+                    mp3_filepaths_to_test.append(mp3_filepath)
+                    if len(mp3_filepaths_to_test) >= test_size_to_stop_at:
+                        break
+            if len(mp3_filepaths_to_test) >= test_size_to_stop_at:
                 break
-        audio_search.measure_performance_of_multiple_snrs_and_mp3s(mp3_filepaths)
+        audio_search.measure_performance_of_multiple_snrs_and_mp3s(mp3_filepaths_to_test)
     return
 
 
