@@ -35,18 +35,21 @@ def plot_spectrogram(Sxx, f, t, alpha=1.0):
     return
 
 
-def plot_recognition_rate(recognition_rate, snrs_to_test, n_songs):
+def plot_recognition_rate(recognition_rate, snrs_to_test, n_songs, clips_length, marker="o", linestyle='-'):
     plt.style.use('ggplot')
-    plt.plot(snrs_to_test, recognition_rate, marker="o")
+    plt.plot(snrs_to_test, recognition_rate, marker=marker, linestyle=linestyle, label=str(clips_length) + " sec")
     plt.xticks(snrs_to_test)
-    plt.ylim(-5, 105)
+    plt.ylim(0, 100)
     plt.yticks([0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100])
     plt.xlabel('Signal to Noise Ratio (dB)')
     plt.ylabel('Recognition Rate')
-    plt.title(str(n_songs) + " Songs. Additive White Noise. 15 second clip")
+    plt.title(str(n_songs) + " Songs. Additive White Noise")
+
     # plt.gca().xaxis.set_major_formatter(plticker.FormatStrFormatter('%d dBFS'))
     plt.gca().yaxis.set_major_formatter(plticker.FormatStrFormatter('%d %%'))
-    plt.show()
+    plt.legend()
+    # plt.show()
+    return
 
 
 def plot_spectrogram_and_peak_subplots(Sxx, f, max_filter, max_filter_size, peak_locations, t):

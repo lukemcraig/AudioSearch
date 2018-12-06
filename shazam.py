@@ -62,20 +62,28 @@ class AudioSearch:
     def measure_performance_of_multiple_snrs_and_mp3s(self, usable_mp3s):
         snrs_to_test = [-15, -12, -9, -6, -3, 0, 3, 6, 9, 12, 15]
         print("testing", usable_mp3s, "at", snrs_to_test, "dBs each")
-        performance_results = np.zeros((len(usable_mp3s), len(snrs_to_test)), dtype=bool)
-        for mp3_i, mp3_filepath in enumerate(usable_mp3s):
-            print(mp3_i, mp3_filepath, "/", len(usable_mp3s))
-            data, rate, metadata = self.load_audio_data(mp3_filepath)
-            data_subset = self.get_test_subset(data, subset_length=15 * rate)
+        subset_clip_lengths = [15, 10, 5]
+        markers = ["D", "s", "^"]
+        linestyles = ['-', '--', ':']
+        for clip_len_i, subset_clip_length in enumerate(subset_clip_lengths):
+            performance_results = np.zeros((len(usable_mp3s), len(snrs_to_test)), dtype=bool)
+            for mp3_i, mp3_filepath in enumerate(usable_mp3s):
+                print(mp3_i, mp3_filepath, "/", len(usable_mp3s))
+                data, rate, metadata = self.load_audio_data(mp3_filepath)
+                data_subset = self.get_test_subset(data, subset_length=subset_clip_length * rate)
 
-            for snr_i, snr_db in enumerate(snrs_to_test):
-                correct_match, predicted_song_id = self.add_noise_and_predict_one_clip(data_subset, metadata,
-                                                                                       mp3_filepath, rate, snr_db)
-                performance_results[mp3_i, snr_i] = correct_match
-        if len(usable_mp3s) > 0:
-            recognition_rate = performance_results.mean(axis=0) * 100.0
-            if self.do_plotting or True:
-                plot_recognition_rate(recognition_rate, snrs_to_test, len(usable_mp3s))
+                for snr_i, snr_db in enumerate(snrs_to_test):
+                    correct_match, predicted_song_id = self.add_noise_and_predict_one_clip(data_subset, metadata,
+                                                                                           mp3_filepath, rate, snr_db)
+                    performance_results[mp3_i, snr_i] = correct_match
+            if len(usable_mp3s) > 0:
+                recognition_rate = performance_results.mean(axis=0) * 100.0
+                if self.do_plotting or True:
+                    plot_recognition_rate(recognition_rate, snrs_to_test, len(usable_mp3s),
+                                          clips_length=subset_clip_length, marker=markers[clip_len_i],
+                                          linestyle=linestyles[clip_len_i])
+        if self.do_plotting or True:
+            plot_show()
         return
 
     def add_noise_and_predict_one_clip(self, data_subset, metadata, mp3_filepath, rate, snr_db):
@@ -537,9 +545,9 @@ def get_test_set_and_test(audio_search, root_directory):
         with open(test_list_json_read_path, 'r')as json_fp:
             mp3_filepaths_to_test = json.load(json_fp)
     else:
-        test_size = 40
+        test_size = 2
         mp3_filepaths_to_test = get_n_random_mp3s_to_test(audio_search, root_directory, test_size)
-        test_list_json_write_path = 'test_mp3_paths_40.json'
+        test_list_json_write_path = 'test_mp3_paths_2.json'
         with open(test_list_json_write_path, 'w')as json_fp:
             json.dump(mp3_filepaths_to_test, json_fp)
 
