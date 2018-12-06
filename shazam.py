@@ -7,6 +7,8 @@ import scipy.ndimage.filters
 import scipy.ndimage.measurements
 import pandas as pd
 
+import bintrees.rbtree
+
 import librosa
 from mutagen.easyid3 import EasyID3
 
@@ -57,8 +59,21 @@ class AudioSearch:
 
     def measure_performance_of_multiple_snrs_and_mp3s(self, mp3_filepaths):
         snrs_to_test = [-15, -12, -9, -6, -3, 0, 3, 6, 9, 12, 15]
-        performance_results = np.zeros((len(mp3_filepaths), len(snrs_to_test)), dtype=bool)
+        usable_mp3s = []
         for mp3_i, mp3_filepath in enumerate(mp3_filepaths):
+            try:
+                mp3_metadata = self.get_mp3_metadata(mp3_filepath)
+            except KeyError:
+                # this song doesn't have the required metadata, so we'll just skip it
+                continue
+            _, song_doc = self.get_song_from_db_with_metadata_except_length(mp3_metadata)
+            if song_doc is None:
+                # This song wasn't already in the database
+                continue
+            usable_mp3s.append(mp3_filepath)
+
+        performance_results = np.zeros((len(usable_mp3s), len(snrs_to_test)), dtype=bool)
+        for mp3_i, mp3_filepath in enumerate(usable_mp3s):
             print(mp3_filepath)
             data, rate, metadata = self.load_audio_data(mp3_filepath)
             data_subset = self.get_test_subset(data)
@@ -67,10 +82,10 @@ class AudioSearch:
                 correct_match, predicted_song_id = self.add_noise_and_predict_one_clip(data_subset, metadata,
                                                                                        mp3_filepath, rate, snr_db)
                 performance_results[mp3_i, snr_i] = correct_match
-
-        recognition_rate = performance_results.mean(axis=0) * 100.0
-        if self.do_plotting:
-            plot_recognition_rate(recognition_rate, snrs_to_test)
+        if len(performance_results) > 0:
+            recognition_rate = performance_results.mean(axis=0) * 100.0
+            if self.do_plotting or True:
+                plot_recognition_rate(recognition_rate, snrs_to_test)
         return
 
     def add_noise_and_predict_one_clip(self, data_subset, metadata, mp3_filepath, rate, snr_db):
@@ -355,11 +370,14 @@ class AudioSearch:
                                                         zone_t_offset, zone_t_size))
                 print("get_target_zone_bounds() took", '{0:.2f}'.format(avg_time * 1000), "ms")
 
+            # paired_df_peak_locations_sweep, n_pairs_sweep = self.query_dataframe_for_peaks_in_target_zone_sweep_lines(
+            #     df_peak_locations, peak_locations_t_sort, peak_locations_f_sort,
+            #     zone_freq_end, zone_freq_start, zone_time_end, zone_time_start)
+
             # TODO better way to check the zone (sweep line)
             paired_df_peak_locations, n_pairs = self.query_dataframe_for_peaks_in_target_zone_binary_search(
                 df_peak_locations, peak_locations_t_sort, peak_locations_f_sort,
-                zone_freq_end, zone_freq_start, zone_time_end,
-                zone_time_start)
+                zone_freq_end, zone_freq_start, zone_time_end, zone_time_start)
             if self.time_query_peaks_for_target_zone_bs:
                 avg_time = self.time_a_function(
                     lambda: self.query_dataframe_for_peaks_in_target_zone_binary_search(
@@ -372,11 +390,7 @@ class AudioSearch:
             old_peaks_in_target_zone_method = False
             if old_peaks_in_target_zone_method:
                 paired_df_peak_locations_old, n_pairs_old = self.query_dataframe_for_peaks_in_target_zone(
-                    df_peak_locations,
-                    zone_freq_end,
-                    zone_freq_start,
-                    zone_time_end,
-                    zone_time_start)
+                    df_peak_locations, zone_freq_end, zone_freq_start, zone_time_end, zone_time_start)
                 assert n_pairs == n_pairs_old
                 pd.testing.assert_frame_equal(paired_df_peak_locations, paired_df_peak_locations_old)
                 if self.time_query_peaks_for_target_zone:
@@ -402,6 +416,24 @@ class AudioSearch:
         avg_n_pairs_per_peak /= n_peaks
         print("avg_n_pairs_per_peak", avg_n_pairs_per_peak)
         return fingerprints
+
+    def query_dataframe_for_peaks_in_target_zone_sweep_lines(self, df_peak_locations, peak_locations_t,
+                                                             peak_locations_f,
+                                                             zone_freq_end, zone_freq_start,
+                                                             zone_time_end, zone_time_start):
+        start = peak_locations_t.searchsorted(zone_time_start, side='left')[0]
+        end = peak_locations_t.searchsorted(zone_time_end, side='right')[0]
+        t_index = peak_locations_t.index[start:end]
+
+        f_start = peak_locations_f.searchsorted(zone_freq_start, side='left')[0]
+        f_end = peak_locations_f.searchsorted(zone_freq_end, side='right')[0]
+        f_index = peak_locations_f.index[f_start:f_end]
+
+        paired_df_peak_locations = df_peak_locations.loc[t_index & f_index]
+
+        n_pairs = len(paired_df_peak_locations)
+
+        return paired_df_peak_locations, n_pairs
 
     def query_dataframe_for_peaks_in_target_zone_binary_search(self, df_peak_locations, peak_locations_t,
                                                                peak_locations_f,
@@ -471,7 +503,7 @@ def get_mp3_filepaths_from_directory(
     return mp3_filepaths
 
 
-def main(insert_into_database=True,
+def main(insert_into_database=False,
          root_directory='G:/Users/Luke/Music/iTunes/iTunes Media/Music/'):
     audio_prints_db = MongoAudioPrintDB()
     # audio_prints_db = RamAudioPrintDB()
@@ -490,6 +522,8 @@ def main(insert_into_database=True,
                 audio_search.measure_performance_of_multiple_snrs_and_mp3s(mp3_filepaths)
     return
 
+
+# TODO command line interface
 
 if __name__ == '__main__':
     main()
