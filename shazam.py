@@ -326,8 +326,14 @@ class AudioSearch:
         df_peak_locations = pd.DataFrame(peak_locations, columns=['f', 't'])
         # df_peak_locations['f'] = f[df_peak_locations['f']]
         # df_peak_locations['t'] = t[df_peak_locations['t']]
-        # sweep line + bst
-        # df_peak_locations.sort_values(by='t', ascending=False)
+
+        # sort by time
+        peak_locations_t_sort = df_peak_locations['t'].sort_values(ascending=True)
+        # sort by frequency
+        peak_locations_f_sort = df_peak_locations['f'].sort_values(ascending=True)
+
+        # sorted_t_location = df_peak_locations.values.__array_interface__['data'][0]
+        # sorted_f_location = df_peak_locations_f_sort.values.__array_interface__['data'][0]
         fingerprints = []
         avg_n_pairs_per_peak = 0
 
@@ -350,19 +356,29 @@ class AudioSearch:
                 print("get_target_zone_bounds() took", '{0:.2f}'.format(avg_time * 1000), "ms")
 
             # TODO better way to check the zone (sweep line)
-            paired_df_peak_locations, n_pairs = self.query_dataframe_for_peaks_in_target_zone(df_peak_locations,
-                                                                                              zone_freq_end,
-                                                                                              zone_freq_start,
-                                                                                              zone_time_end,
-                                                                                              zone_time_start)
+            paired_df_peak_locations, n_pairs = self.query_dataframe_for_peaks_in_target_zone_binary_search(
+                df_peak_locations, peak_locations_t_sort, peak_locations_f_sort,
+                zone_freq_end, zone_freq_start, zone_time_end,
+                zone_time_start)
+
+            old_peaks_in_target_zone_method = False
+            if old_peaks_in_target_zone_method:
+                paired_df_peak_locations, n_pairs = self.query_dataframe_for_peaks_in_target_zone(df_peak_locations,
+                                                                                                  zone_freq_end,
+                                                                                                  zone_freq_start,
+                                                                                                  zone_time_end,
+                                                                                                  zone_time_start)
+
+                if self.time_query_peaks_for_target_zone:
+                    avg_time = self.time_a_function(
+                        lambda: self.query_dataframe_for_peaks_in_target_zone(df_peak_locations,
+                                                                              zone_freq_end,
+                                                                              zone_freq_start,
+                                                                              zone_time_end,
+                                                                              zone_time_start))
+                    print("query_dataframe_for_peaks_in_target_zone() took", '{0:.2f}'.format(avg_time * 1000), "ms")
+
             avg_n_pairs_per_peak += n_pairs
-            if self.time_query_peaks_for_target_zone:
-                avg_time = self.time_a_function(lambda: self.query_dataframe_for_peaks_in_target_zone(df_peak_locations,
-                                                                                                      zone_freq_end,
-                                                                                                      zone_freq_start,
-                                                                                                      zone_time_end,
-                                                                                                      zone_time_start))
-                print("query_dataframe_for_peaks_in_target_zone() took", '{0:.2f}'.format(avg_time * 1000), "ms")
 
             for j, second_peak in paired_df_peak_locations.iterrows():
                 # print("    ", j, "/", n_pairs)
@@ -377,8 +393,27 @@ class AudioSearch:
         print("avg_n_pairs_per_peak", avg_n_pairs_per_peak)
         return fingerprints
 
+    def query_dataframe_for_peaks_in_target_zone_binary_search(self, df_peak_locations, peak_locations_t,
+                                                               peak_locations_f,
+                                                               zone_freq_end, zone_freq_start,
+                                                               zone_time_end, zone_time_start):
+        start = peak_locations_t.searchsorted(zone_time_start, side='left')[0]
+        end = peak_locations_t.searchsorted(zone_time_end, side='right')[0]
+        t_index = peak_locations_t.index[start:end]
+
+        f_start = peak_locations_f.searchsorted(zone_freq_start, side='left')[0]
+        f_end = peak_locations_f.searchsorted(zone_freq_end, side='right')[0]
+        f_index = peak_locations_f.index[f_start:f_end]
+
+        paired_df_peak_locations = df_peak_locations.loc[t_index & f_index]
+
+        n_pairs = len(paired_df_peak_locations)
+
+        return paired_df_peak_locations, n_pairs
+
     def query_dataframe_for_peaks_in_target_zone(self, df_peak_locations, zone_freq_end, zone_freq_start, zone_time_end,
                                                  zone_time_start):
+        # these are all actually boolean dataframes, not indexes
         time_index = (df_peak_locations['t'] <= zone_time_end) & (df_peak_locations['t'] >= zone_time_start)
         freq_index = (zone_freq_start <= df_peak_locations['f']) & (df_peak_locations['f'] <= zone_freq_end)
         zone_index = time_index & freq_index
@@ -394,7 +429,7 @@ class AudioSearch:
         zone_freq_end = min(f_max, zone_freq_start + zone_f_size)
         if zone_freq_end == f_max:
             zone_freq_start = zone_freq_end - zone_f_size
-        return zone_freq_start, zone_freq_end, zone_time_start, zone_time_end
+        return int(zone_freq_start), int(zone_freq_end), int(zone_time_start), int(zone_time_end)
 
     def combine_parts_into_key(self, peak_f, second_peak_f, time_delta):
         peak_f = np.uint32(peak_f)
@@ -440,7 +475,7 @@ def main(insert_into_database=True,
             # only add the first few songs in an album to increase variety of the test subset
             mp3_filepaths = mp3_filepaths[0:2]
             if insert_into_database:
-                audio_search.insert_mp3s_fingerprints_into_database(mp3_filepaths, skip_existing_songs=True)
+                audio_search.insert_mp3s_fingerprints_into_database(mp3_filepaths, skip_existing_songs=False)
             else:
                 audio_search.measure_performance_of_multiple_snrs_and_mp3s(mp3_filepaths)
     return
