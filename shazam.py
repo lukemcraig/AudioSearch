@@ -16,16 +16,17 @@ from mongo_audio_print_db import MongoAudioPrintDB
 from ram_audio_print_db import RamAudioPrintDB
 
 from shazam_plots import plot_recognition_rate, plot_spectrogram_and_peak_subplots, start_hist_subplots, \
-    make_next_hist_subplot, show_hist_plot, plot_hist_of_stks, plot_show, plot_scatter_of_fingerprint_offsets
+    make_next_hist_subplot, show_hist_plot, plot_hist_of_stks, plot_show, plot_scatter_of_fingerprint_offsets, \
+    plot_spectrogram_peaks
 
 
 class AudioSearch:
     time_functions = False
-    time_add_noise = True & time_functions
-    time_find_spec_peaks = True & time_functions
-    time_get_target_zone = True & time_functions
-    time_query_peaks_for_target_zone = True & time_functions
-    time_get_df_of_fingerprint_offsets = True & time_functions
+    time_add_noise = False & time_functions
+    time_find_spec_peaks = False & time_functions
+    time_get_target_zone_bounds = False & time_functions
+    time_query_peaks_for_target_zone = False & time_functions
+    time_get_df_of_fingerprint_offsets = False & time_functions
 
     time_n_repeats = 100
 
@@ -36,8 +37,6 @@ class AudioSearch:
 
     def insert_mp3s_fingerprints_into_database(self, mp3_filepaths, skip_existing_songs=True):
         for mp3_i, mp3_filepath in enumerate(mp3_filepaths):
-            print(mp3_filepath)
-
             try:
                 mp3_metadata = self.get_mp3_metadata(mp3_filepath)
             except KeyError:
@@ -49,17 +48,14 @@ class AudioSearch:
                 _, song_doc = self.get_song_from_db_with_metadata_except_length(mp3_metadata)
                 if song_doc is not None:
                     continue
-
+            print(mp3_filepath)
             data, rate, metadata = self.load_audio_data(mp3_filepath)
             fingerprints = self.get_fingerprints_from_audio(data, rate)
             self.insert_one_mp3_with_fingerprints_into_database(metadata, fingerprints)
         return
 
     def measure_performance_of_multiple_snrs_and_mp3s(self, mp3_filepaths):
-        # mp3_filepaths = [mp3_filepaths[i] for i in [1, 2, 6, 7, 9, 14, 16, 18, 31, 29, 36]]
-        # mp3_filepaths = [mp3_filepaths[i] for i in [31, 36]]
         snrs_to_test = [-15, -12, -9, -6, -3, 0, 3, 6, 9, 12, 15]
-        # snrs_to_test = [-30, -15]
         performance_results = np.zeros((len(mp3_filepaths), len(snrs_to_test)), dtype=bool)
         for mp3_i, mp3_filepath in enumerate(mp3_filepaths):
             print(mp3_filepath)
@@ -101,7 +97,8 @@ class AudioSearch:
         f_step = np.median(f[1:-1] - f[:-2])
         t_step = np.median(t[1:-1] - t[:-2])
         peak_locations, max_filter, max_filter_size = self.find_spectrogram_peaks(Sxx, t_step)
-
+        avg_peaks_per_second = len(peak_locations) / t[-1]
+        print('avg_peaks_per_second', avg_peaks_per_second)
         if self.time_find_spec_peaks:
             avg_time = self.time_a_function(lambda: self.find_spectrogram_peaks(Sxx, t_step))
             print("Sxx was ", Sxx.shape)
@@ -316,7 +313,7 @@ class AudioSearch:
         t_size = int(np.round(t_size_sec / t_step))
 
         max_filter = scipy.ndimage.filters.maximum_filter(Sxx, size=(f_size, t_size), mode='constant')
-        peak_locations = np.argwhere(Sxx == max_filter)
+        peak_locations = np.argwhere((Sxx == max_filter) & (Sxx != 0))
         return peak_locations, max_filter, (t_size, f_size)
 
     def get_fingerprints_from_peaks(self, f_max, f_step, peak_locations, t_max, t_step):
@@ -332,7 +329,10 @@ class AudioSearch:
         # sweep line + bst
         # df_peak_locations.sort_values(by='t', ascending=False)
         fingerprints = []
-        print("n_peaks=", len(df_peak_locations))
+        avg_n_pairs_per_peak = 0
+        n_peaks = len(df_peak_locations)
+        print("n_peaks=", n_peaks)
+
         for i, anchor in df_peak_locations.iterrows():
             # print(i, end=", ")
             anchor_t = anchor['t']
@@ -344,16 +344,19 @@ class AudioSearch:
                                                                                                          zone_f_size,
                                                                                                          zone_t_offset,
                                                                                                          zone_t_size)
-            if self.time_get_target_zone:
+            if self.time_get_target_zone_bounds:
                 avg_time = self.time_a_function(
                     lambda: self.get_target_zone_bounds(anchor_f, anchor_t, f_max, t_max, zone_f_size,
                                                         zone_t_offset, zone_t_size))
                 print("get_target_zone_bounds() took", '{0:.2f}'.format(avg_time * 1000), "ms")
 
             # TODO better way to check the zone (sweep line)
-            paired_df_peak_locations = self.query_dataframe_for_peaks_in_target_zone(df_peak_locations, zone_freq_end,
-                                                                                     zone_freq_start, zone_time_end,
-                                                                                     zone_time_start)
+            paired_df_peak_locations, n_pairs = self.query_dataframe_for_peaks_in_target_zone(df_peak_locations,
+                                                                                              zone_freq_end,
+                                                                                              zone_freq_start,
+                                                                                              zone_time_end,
+                                                                                              zone_time_start)
+            avg_n_pairs_per_peak += n_pairs
             if self.time_query_peaks_for_target_zone:
                 avg_time = self.time_a_function(lambda: self.query_dataframe_for_peaks_in_target_zone(df_peak_locations,
                                                                                                       zone_freq_end,
@@ -371,6 +374,8 @@ class AudioSearch:
                 fingerprint = {'hash': int(combined_key), 'offset': int(anchor_t)}
                 fingerprints.append(fingerprint)
         # df_fingerprints = pd.DataFrame(fingerprints)
+        avg_n_pairs_per_peak /= n_peaks
+        print("avg_n_pairs_per_peak", avg_n_pairs_per_peak)
         return fingerprints
 
     def query_dataframe_for_peaks_in_target_zone(self, df_peak_locations, zone_freq_end, zone_freq_start, zone_time_end,
@@ -379,8 +384,9 @@ class AudioSearch:
         freq_index = (zone_freq_start <= df_peak_locations['f']) & (df_peak_locations['f'] <= zone_freq_end)
         zone_index = time_index & freq_index
         n_pairs = zone_index.sum()
+        # print("n_pairs:", n_pairs)
         paired_df_peak_locations = df_peak_locations[zone_index]
-        return paired_df_peak_locations
+        return paired_df_peak_locations, n_pairs
 
     def get_target_zone_bounds(self, anchor_f, anchor_t, f_max, t_max, zone_f_size, zone_t_offset, zone_t_size):
         zone_time_start = anchor_t + zone_t_offset
@@ -433,7 +439,7 @@ def main(insert_into_database=True,
         mp3_filepaths = [os.path.join(directory, fp) for fp in file_names if fp.endswith('.mp3')]
         if len(mp3_filepaths) > 0:
             if insert_into_database:
-                audio_search.insert_mp3s_fingerprints_into_database(mp3_filepaths)
+                audio_search.insert_mp3s_fingerprints_into_database(mp3_filepaths, skip_existing_songs=False)
             else:
                 audio_search.measure_performance_of_multiple_snrs_and_mp3s(mp3_filepaths)
     return
