@@ -514,15 +514,23 @@ def main(insert_into_database=False,
     audio_search = AudioSearch(audio_prints_db=audio_prints_db)
 
     # mp3_filepaths = get_mp3_filepaths_from_directory(root_directory)
-    for directory, _, file_names in os.walk(root_directory):
-        mp3_filepaths = [os.path.join(directory, fp) for fp in file_names if fp.endswith('.mp3')]
-        if len(mp3_filepaths) > 0:
-            # only add the first few songs in an album to increase variety of the test subset
-            mp3_filepaths = mp3_filepaths[0:2]
-            if insert_into_database:
+    if insert_into_database:
+        for directory, _, file_names in os.walk(root_directory):
+            mp3_filepaths = [os.path.join(directory, fp) for fp in file_names if fp.endswith('.mp3')]
+            if len(mp3_filepaths) > 0:
+                # only add the first few songs in an album to increase variety of the test subset
+                mp3_filepaths = mp3_filepaths[0:2]
                 audio_search.insert_mp3s_fingerprints_into_database(mp3_filepaths, skip_existing_songs=True)
-            else:
-                audio_search.measure_performance_of_multiple_snrs_and_mp3s(mp3_filepaths)
+    else:
+        mp3_filepaths_to_test = []
+        test_size_to_stop_at = 10
+        for directory, _, file_names in os.walk(root_directory):
+            mp3_filepaths = [os.path.join(directory, fp) for fp in file_names if fp.endswith('.mp3')]
+            if len(mp3_filepaths) > 0:
+                mp3_filepaths_to_test.append(mp3_filepaths[0:2])
+            if len(mp3_filepaths_to_test) > test_size_to_stop_at:
+                break
+        audio_search.measure_performance_of_multiple_snrs_and_mp3s(mp3_filepaths)
     return
 
 
