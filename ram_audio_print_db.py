@@ -58,6 +58,7 @@ class RamAudioPrintDB(AudioPrintsDB):
                 possible_song = self.songs_hashtable[possible_song_id]
                 if song['artist'] == possible_song[0]:
                     if song['album'] == possible_song[1]:
+                        # TODO handle no track length
                         if song['track_length_s'] == possible_song[3]:
                             song['_id'] = possible_song_id
                             return song

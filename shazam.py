@@ -34,11 +34,18 @@ class AudioSearch:
         self.do_plotting = do_plotting
         pass
 
-    def insert_mp3s_fingerprints_into_database(self, mp3_filepaths):
+    def insert_mp3s_fingerprints_into_database(self, mp3_filepaths, skip_existing_songs=True):
         for mp3_i, mp3_filepath in enumerate(mp3_filepaths):
             print(mp3_filepath)
-            data, rate, metadata = self.load_audio_data(mp3_filepath)
 
+            if skip_existing_songs:
+                # loading the mp3s is slow so we optionally skip already added ones without checking track length
+                mp3_metadata = self.get_mp3_metadata(mp3_filepath)
+                _, song_doc = self.get_song_from_db_with_metadata_except_length(mp3_metadata)
+                if song_doc is not None:
+                    continue
+
+            data, rate, metadata = self.load_audio_data(mp3_filepath)
             fingerprints = self.get_fingerprints_from_audio(data, rate)
             self.insert_one_mp3_with_fingerprints_into_database(metadata, fingerprints)
         return
@@ -102,9 +109,7 @@ class AudioSearch:
 
     def try_to_match_clip_to_database(self, filepath, fingerprints, metadata):
         # print("querying song in database")
-        song = {'artist': metadata['artist'], 'album': metadata['album'], 'title': metadata['title'],
-                'track_length_s': metadata['track_length_s']}
-        song_doc = self.audio_prints_db.find_one_song(song)
+        _, song_doc = self.get_song_from_db_with_metadata(metadata)
         if song_doc is None:
             raise Exception(filepath + "needs to be inserted into the DB first!")
         # print("querying database")
@@ -203,9 +208,7 @@ class AudioSearch:
 
     def get_or_insert_song_into_db(self, metadata):
         print("querying song in database")
-        song = {'artist': metadata['artist'], 'album': metadata['album'], 'title': metadata['title'],
-                'track_length_s': metadata['track_length_s']}
-        song_doc = self.audio_prints_db.find_one_song(song)
+        song, song_doc = self.get_song_from_db_with_metadata(metadata)
         if song_doc is None:
             print("inserting song into database")
             new_id = self.audio_prints_db.get_next_song_id()
@@ -215,6 +218,17 @@ class AudioSearch:
             return inserted_id
         else:
             return song_doc['_id']
+
+    def get_song_from_db_with_metadata(self, metadata):
+        song = {'artist': metadata['artist'], 'album': metadata['album'], 'title': metadata['title'],
+                'track_length_s': metadata['track_length_s']}
+        song_doc = self.audio_prints_db.find_one_song(song)
+        return song, song_doc
+
+    def get_song_from_db_with_metadata_except_length(self, metadata):
+        song = {'artist': metadata['artist'], 'album': metadata['album'], 'title': metadata['title']}
+        song_doc = self.audio_prints_db.find_one_song(song)
+        return song, song_doc
 
     def get_test_subset(self, data):
         # subset_length = np.random.randint(rate * 5, rate * 14)
@@ -263,14 +277,18 @@ class AudioSearch:
         desired_rate = 8000
         data, rate = librosa.load(filepath, mono=True, sr=desired_rate)
         assert rate == desired_rate
+        metadata = self.get_mp3_metadata(filepath)
+        metadata["track_length_s"] = len(data) / rate
+        return data, rate, metadata
+
+    def get_mp3_metadata(self, filepath):
         mp3tags = EasyID3(filepath)
         metadata = {
             "artist": mp3tags['artist'][0],
             "album": mp3tags['album'][0],
-            "title": mp3tags['title'][0],
-            "track_length_s": len(data) / rate
+            "title": mp3tags['title'][0]
         }
-        return data, rate, metadata
+        return metadata
 
     def get_spectrogram(self, data, rate):
         # print('get_spectrogram')
@@ -388,7 +406,8 @@ class AudioSearch:
         return peak_f, second_peak_f, time_delta
 
 
-def get_mp3_filepaths_from_directory(directory='C:/Users\Luke\Downloads/Disasterpeace/'):
+def get_mp3_filepaths_from_directory(
+        directory='G:/Users/Luke/Music/iTunes/iTunes Media/Music/A Tribe Called Quest/Midnight Marauders/'):
     mp3_filepaths = []
     for filepath in os.listdir(directory):
         if filepath[-4:] != '.mp3':
@@ -397,15 +416,21 @@ def get_mp3_filepaths_from_directory(directory='C:/Users\Luke\Downloads/Disaster
     return mp3_filepaths
 
 
-def main(insert_into_database=False):
-    # audio_prints_db = MongoAudioPrintDB()
-    audio_prints_db = RamAudioPrintDB()
+def main(insert_into_database=True,
+         root_directory='G:/Users/Luke/Music/iTunes/iTunes Media/Music/A Tribe Called Quest/'):
+    audio_prints_db = MongoAudioPrintDB()
+    # audio_prints_db = RamAudioPrintDB()
+
     audio_search = AudioSearch(audio_prints_db=audio_prints_db)
-    mp3_filepaths = get_mp3_filepaths_from_directory()
-    if insert_into_database:
-        audio_search.insert_mp3s_fingerprints_into_database(mp3_filepaths)
-    else:
-        audio_search.measure_performance_of_multiple_snrs_and_mp3s(mp3_filepaths)
+
+    # mp3_filepaths = get_mp3_filepaths_from_directory(root_directory)
+    for directory, _, file_names in os.walk(root_directory):
+        mp3_filepaths = [os.path.join(directory, fp) for fp in file_names if fp.endswith('.mp3')]
+        if len(mp3_filepaths) > 0:
+            if insert_into_database:
+                audio_search.insert_mp3s_fingerprints_into_database(mp3_filepaths)
+            else:
+                audio_search.measure_performance_of_multiple_snrs_and_mp3s(mp3_filepaths)
     return
 
 
