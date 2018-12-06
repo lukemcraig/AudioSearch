@@ -26,6 +26,7 @@ class AudioSearch:
     time_find_spec_peaks = False & time_functions
     time_get_target_zone_bounds = False & time_functions
     time_query_peaks_for_target_zone = False & time_functions
+    time_query_peaks_for_target_zone_bs = False & time_functions
     time_get_df_of_fingerprint_offsets = False & time_functions
 
     time_n_repeats = 100
@@ -324,11 +325,10 @@ class AudioSearch:
         # start one spectrogram time segment after the current one
         zone_t_offset = 1
         df_peak_locations = pd.DataFrame(peak_locations, columns=['f', 't'])
-        # df_peak_locations['f'] = f[df_peak_locations['f']]
-        # df_peak_locations['t'] = t[df_peak_locations['t']]
 
         # sort by time
-        peak_locations_t_sort = df_peak_locations['t'].sort_values(ascending=True)
+        df_peak_locations.sort_values(by='t', ascending=True, inplace=True)
+        peak_locations_t_sort = df_peak_locations['t']
         # sort by frequency
         peak_locations_f_sort = df_peak_locations['f'].sort_values(ascending=True)
 
@@ -360,15 +360,25 @@ class AudioSearch:
                 df_peak_locations, peak_locations_t_sort, peak_locations_f_sort,
                 zone_freq_end, zone_freq_start, zone_time_end,
                 zone_time_start)
+            if self.time_query_peaks_for_target_zone_bs:
+                avg_time = self.time_a_function(
+                    lambda: self.query_dataframe_for_peaks_in_target_zone_binary_search(
+                        df_peak_locations, peak_locations_t_sort, peak_locations_f_sort,
+                        zone_freq_end, zone_freq_start, zone_time_end,
+                        zone_time_start))
+                print("query_dataframe_for_peaks_in_target_zone_binary_search() took",
+                      '{0:.2f}'.format(avg_time * 1000), "ms")
 
             old_peaks_in_target_zone_method = False
             if old_peaks_in_target_zone_method:
-                paired_df_peak_locations, n_pairs = self.query_dataframe_for_peaks_in_target_zone(df_peak_locations,
-                                                                                                  zone_freq_end,
-                                                                                                  zone_freq_start,
-                                                                                                  zone_time_end,
-                                                                                                  zone_time_start)
-
+                paired_df_peak_locations_old, n_pairs_old = self.query_dataframe_for_peaks_in_target_zone(
+                    df_peak_locations,
+                    zone_freq_end,
+                    zone_freq_start,
+                    zone_time_end,
+                    zone_time_start)
+                assert n_pairs == n_pairs_old
+                pd.testing.assert_frame_equal(paired_df_peak_locations, paired_df_peak_locations_old)
                 if self.time_query_peaks_for_target_zone:
                     avg_time = self.time_a_function(
                         lambda: self.query_dataframe_for_peaks_in_target_zone(df_peak_locations,
