@@ -1,0 +1,22 @@
+name: audiosearchmin
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - numpy
+  - numpy-base
+  - pandas
+  - scipy
+  - matplotlib
+  - pymongo
+  - bintrees
+  - pip:
+    - audioread==2.1.6
+    - joblib==0.13.0
+    - librosa==0.6.2
+    - msgpack==0.5.6
+    - mutagen==1.41.1
+    - resampy==0.2.1
+    - tables==3.4.4
+prefix: C:\ProgramData\Anaconda3\envs\audiosearch
+

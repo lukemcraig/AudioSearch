@@ -7,6 +7,7 @@ import scipy.ndimage.filters
 import scipy.ndimage.measurements
 import scipy.io.wavfile
 import pandas as pd
+
 import librosa
 from mutagen.easyid3 import EasyID3
 
@@ -485,7 +486,7 @@ def main(insert_into_database=True,
             # only add the first few songs in an album to increase variety of the test subset
             mp3_filepaths = mp3_filepaths[0:2]
             if insert_into_database:
-                audio_search.insert_mp3s_fingerprints_into_database(mp3_filepaths, skip_existing_songs=False)
+                audio_search.insert_mp3s_fingerprints_into_database(mp3_filepaths, skip_existing_songs=True)
             else:
                 audio_search.measure_performance_of_multiple_snrs_and_mp3s(mp3_filepaths)
     return
