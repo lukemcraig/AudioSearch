@@ -2,12 +2,19 @@
 __3tsoftwarelabs_disabled_aggregation_stages = [
 
 	{
-		// Stage 4 - excluded
-		stage: 4,  source: {
-			$project: {
-			    // specifications
-			    count:1,
-			    length:"$song.length"
+		// Stage 2 - excluded
+		stage: 2,  source: {
+			$sort: {
+			count:-1
+			}
+		}
+	},
+
+	{
+		// Stage 8 - excluded
+		stage: 8,  source: {
+			$sort: {
+			fingerprintsPerSecond:-1
 			}
 		}
 	},
@@ -25,13 +32,6 @@ db.getCollection("fingerprints").aggregate(
 			}
 		},
 
-		// Stage 2
-		{
-			$sort: {
-			count:-1
-			}
-		},
-
 		// Stage 3
 		{
 			$lookup: // Equality Match
@@ -40,6 +40,44 @@ db.getCollection("fingerprints").aggregate(
 			    localField: "_id",
 			    foreignField: "_id",
 			    as: "song"
+			}
+		},
+
+		// Stage 4
+		{
+			$unwind: {
+			    path : "$song",
+			}
+		},
+
+		// Stage 5
+		{
+			$addFields: {
+			    songLength:"$song.track_length_s"
+			}
+		},
+
+		// Stage 6
+		{
+			$project: {
+			    song:0
+			}
+		},
+
+		// Stage 7
+		{
+			$addFields: {
+			    "fingerprintsPerSecond": {"$divide":["$count","$songLength"]}
+			}
+		},
+
+		// Stage 9
+		{
+			$group: {
+			"_id": null, 
+			"avgCount": { "$avg": "$count" },
+			"avgSongLength": { "$avg": "$songLength" },
+			"avgFPpS": { "$avg": "$fingerprintsPerSecond" } 
 			}
 		},
 
