@@ -35,7 +35,7 @@ class AudioSearch:
         self.do_plotting = do_plotting
         pass
 
-    def insert_mp3s_fingerprints_into_database(self, mp3_filepaths, skip_existing_songs=True):
+    def insert_mp3s_fingerprints_into_database(self, mp3_filepaths, skip_existing_songs=False):
         for mp3_i, mp3_filepath in enumerate(mp3_filepaths):
             try:
                 mp3_metadata = self.get_mp3_metadata(mp3_filepath)
@@ -438,8 +438,10 @@ def main(insert_into_database=True,
     for directory, _, file_names in os.walk(root_directory):
         mp3_filepaths = [os.path.join(directory, fp) for fp in file_names if fp.endswith('.mp3')]
         if len(mp3_filepaths) > 0:
+            # only add the first few songs in an album to increase variety of the test subset
+            mp3_filepaths = mp3_filepaths[0:2]
             if insert_into_database:
-                audio_search.insert_mp3s_fingerprints_into_database(mp3_filepaths, skip_existing_songs=False)
+                audio_search.insert_mp3s_fingerprints_into_database(mp3_filepaths, skip_existing_songs=True)
             else:
                 audio_search.measure_performance_of_multiple_snrs_and_mp3s(mp3_filepaths)
     return
