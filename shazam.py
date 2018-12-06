@@ -252,10 +252,13 @@ class AudioSearch:
         # subset_length = np.random.randint(rate * 5, rate * 14)
         subset_length = 112000
         subset_length = min(len(data), subset_length)
-        random = np.random.RandomState(42)
-        random_start_time = random.randint(0, len(data) - subset_length)
+        # random = np.random.RandomState(42)
+        # random_start_time = random.randint(0, len(data) - subset_length)
 
-        data = data[random_start_time:random_start_time + subset_length]
+        # test from the middle
+        start_time = (len(data) // 2) - (subset_length // 2)
+        start_time = max(start_time, 0)
+        data = data[start_time:start_time + subset_length]
         return data
 
     def add_noise(self, data, desired_snr_db):
