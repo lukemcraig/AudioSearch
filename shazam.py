@@ -76,16 +76,16 @@ class AudioSearch:
         for mp3_i, mp3_filepath in enumerate(usable_mp3s):
             print(mp3_filepath)
             data, rate, metadata = self.load_audio_data(mp3_filepath)
-            data_subset = self.get_test_subset(data)
+            data_subset = self.get_test_subset(data, subset_length=15 * rate)
 
             for snr_i, snr_db in enumerate(snrs_to_test):
                 correct_match, predicted_song_id = self.add_noise_and_predict_one_clip(data_subset, metadata,
                                                                                        mp3_filepath, rate, snr_db)
                 performance_results[mp3_i, snr_i] = correct_match
-        if len(performance_results) > 0:
+        if len(usable_mp3s) > 0:
             recognition_rate = performance_results.mean(axis=0) * 100.0
             if self.do_plotting or True:
-                plot_recognition_rate(recognition_rate, snrs_to_test)
+                plot_recognition_rate(recognition_rate, snrs_to_test, len(usable_mp3s))
         return
 
     def add_noise_and_predict_one_clip(self, data_subset, metadata, mp3_filepath, rate, snr_db):
@@ -248,9 +248,9 @@ class AudioSearch:
         song_doc = self.audio_prints_db.find_one_song(song)
         return song, song_doc
 
-    def get_test_subset(self, data):
+    def get_test_subset(self, data, subset_length):
         # subset_length = np.random.randint(rate * 5, rate * 14)
-        subset_length = 112000
+        # subset_length = int(8000 * 15)
         subset_length = min(len(data), subset_length)
         # random = np.random.RandomState(42)
         # random_start_time = random.randint(0, len(data) - subset_length)
