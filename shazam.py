@@ -523,6 +523,7 @@ def get_n_random_mp3s_to_test(audio_search, root_directory, test_size):
 
 def get_test_set_and_test(audio_search, root_directory):
     test_list_json_read_path = 'test_mp3_paths.json'
+    # test_list_json_read_path = None
     if test_list_json_read_path is not None:
         with open(test_list_json_read_path, 'r')as json_fp:
             mp3_filepaths_to_test = json.load(json_fp)
@@ -533,6 +534,7 @@ def get_test_set_and_test(audio_search, root_directory):
         with open(test_list_json_write_path, 'w')as json_fp:
             json.dump(mp3_filepaths_to_test, json_fp)
     audio_search.measure_performance_of_multiple_snrs_and_mp3s(mp3_filepaths_to_test)
+    return
 
 
 def insert_mp3s_from_directory_in_random_order(audio_search, root_directory):
