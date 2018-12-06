@@ -38,9 +38,14 @@ class AudioSearch:
         for mp3_i, mp3_filepath in enumerate(mp3_filepaths):
             print(mp3_filepath)
 
-            if skip_existing_songs:
-                # loading the mp3s is slow so we optionally skip already added ones without checking track length
+            try:
                 mp3_metadata = self.get_mp3_metadata(mp3_filepath)
+            except KeyError:
+                # this song doesn't have the required metadata, so we'll just skip it
+                continue
+
+            if skip_existing_songs:
+                # loading the audio data is slow so we optionally skip already added ones, without checking track length
                 _, song_doc = self.get_song_from_db_with_metadata_except_length(mp3_metadata)
                 if song_doc is not None:
                     continue
@@ -417,7 +422,7 @@ def get_mp3_filepaths_from_directory(
 
 
 def main(insert_into_database=True,
-         root_directory='G:/Users/Luke/Music/iTunes/iTunes Media/Music/A Tribe Called Quest/'):
+         root_directory='G:/Users/Luke/Music/iTunes/iTunes Media/Music/'):
     audio_prints_db = MongoAudioPrintDB()
     # audio_prints_db = RamAudioPrintDB()
 
