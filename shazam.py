@@ -313,10 +313,15 @@ class AudioSearch:
 
     def get_fingerprints_from_peaks(self, f_max, f_step, peak_locations, t_max, t_step):
         # print("get_fingerprints_from_peaks")
+        n_peaks = len(peak_locations)
+        print("n_peaks=", n_peaks)
         # TODO fan out factor
         fan_out_factor = 10
+        # 1400hz tall zone box
         zone_f_size = 1400 // f_step
+        # 6 second wide zone box
         zone_t_size = 6 // t_step
+        # start one spectrogram time segment after the current one
         zone_t_offset = 1
         df_peak_locations = pd.DataFrame(peak_locations, columns=['f', 't'])
         # df_peak_locations['f'] = f[df_peak_locations['f']]
@@ -325,8 +330,6 @@ class AudioSearch:
         # df_peak_locations.sort_values(by='t', ascending=False)
         fingerprints = []
         avg_n_pairs_per_peak = 0
-        n_peaks = len(df_peak_locations)
-        print("n_peaks=", n_peaks)
 
         for i, anchor in df_peak_locations.iterrows():
             # print(i, end=", ")
