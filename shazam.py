@@ -1,5 +1,7 @@
+import json
 import os
 import timeit
+import random
 
 import numpy as np
 import scipy.signal
@@ -7,7 +9,7 @@ import scipy.ndimage.filters
 import scipy.ndimage.measurements
 import pandas as pd
 
-import bintrees.rbtree
+# import bintrees.rbtree
 
 import librosa
 from mutagen.easyid3 import EasyID3
@@ -295,7 +297,7 @@ class AudioSearch:
         return metadata
 
     def get_spectrogram(self, data, rate):
-        # print('get_spectrogram')
+        print('get_spectrogram')
         nperseg = 1024
         noverlap = int(np.round(nperseg / 1.5))
         # TODO scaling?
@@ -307,7 +309,7 @@ class AudioSearch:
         return Sxx, f, t
 
     def find_spectrogram_peaks(self, Sxx, t_step, f_size_hz=500, t_size_sec=2):
-        # print('find_spectrogram_peaks')
+        print('find_spectrogram_peaks')
         max_f = 4000
         f_bins = Sxx.shape[0]
         f_per_bin = max_f / f_bins
@@ -485,7 +487,7 @@ class AudioSearch:
 
 
 def get_mp3_filepaths_from_directory(
-        directory='G:/Users/Luke/Music/iTunes/iTunes Media/Music/A Tribe Called Quest/Midnight Marauders/'):
+        directory='G:\\Users\\Luke\\Music\\iTunes\\iTunes Media\\Music\\A Tribe Called Quest\\Midnight Marauders\\'):
     mp3_filepaths = []
     for filepath in os.listdir(directory):
         if filepath[-4:] != '.mp3':
@@ -494,45 +496,66 @@ def get_mp3_filepaths_from_directory(
     return mp3_filepaths
 
 
-def main(insert_into_database=True,
-         root_directory='G:/Users/Luke/Music/iTunes/iTunes Media/Music/'):
+def get_n_random_mp3s_to_test(audio_search, root_directory, test_size):
+    mp3_filepaths_to_test = []
+    for directory, subdirs, file_names in os.walk(root_directory):
+        mp3_filepaths = [os.path.join(directory, fp) for fp in file_names if fp.endswith('.mp3')]
+        if len(mp3_filepaths) > 0:
+            for mp3_i, mp3_filepath in enumerate(mp3_filepaths[0:1]):
+                try:
+                    # TODO refactor this method out of AudioSearch class
+                    mp3_metadata = audio_search.get_mp3_metadata(mp3_filepath)
+                except KeyError:
+                    # this song doesn't have the required metadata, so we'll just skip it
+                    continue
+                _, song_doc = audio_search.get_song_from_db_with_metadata_except_length(mp3_metadata)
+                if song_doc is None:
+                    # This song wasn't already in the database
+                    continue
+                mp3_filepaths_to_test.append(mp3_filepath)
+        #         if len(mp3_filepaths_to_test) >= test_size:
+        #             break
+        # if len(mp3_filepaths_to_test) >= test_size:
+        #     break
+    mp3_filepaths_to_test = random.sample(mp3_filepaths_to_test, test_size)
+    return mp3_filepaths_to_test
+
+
+def get_test_set_and_test(audio_search, root_directory):
+    test_list_json_read_path = 'test_mp3_paths.json'
+    if test_list_json_read_path is not None:
+        with open(test_list_json_read_path, 'r')as json_fp:
+            mp3_filepaths_to_test = json.load(json_fp)
+    else:
+        test_size = 250
+        mp3_filepaths_to_test = get_n_random_mp3s_to_test(audio_search, root_directory, test_size)
+        test_list_json_write_path = 'test_mp3_paths.json'
+        with open(test_list_json_write_path, 'w')as json_fp:
+            json.dump(mp3_filepaths_to_test, json_fp)
+    audio_search.measure_performance_of_multiple_snrs_and_mp3s(mp3_filepaths_to_test)
+
+
+def insert_mp3s_from_directory_in_random_order(audio_search, root_directory):
+    all_mp3_file_paths = []
+    for directory, _, file_names in os.walk(root_directory):
+        mp3_filepaths = [os.path.join(directory, fp) for fp in file_names if fp.endswith('.mp3')]
+        if len(mp3_filepaths) > 0:
+            all_mp3_file_paths += mp3_filepaths
+    # shuffle the order of insertion so if we don't use all the mp3s we'll get a random sample
+    random.shuffle(all_mp3_file_paths)
+    audio_search.insert_mp3s_fingerprints_into_database(all_mp3_file_paths, skip_existing_songs=True)
+
+
+def main(insert_into_database=False, root_directory='G:\\Users\\Luke\\Music\\iTunes\\iTunes Media\\Music\\'):
     audio_prints_db = MongoAudioPrintDB()
     # audio_prints_db = RamAudioPrintDB()
 
     audio_search = AudioSearch(audio_prints_db=audio_prints_db)
 
-    # mp3_filepaths = get_mp3_filepaths_from_directory(root_directory)
     if insert_into_database:
-        for directory, _, file_names in os.walk(root_directory):
-            mp3_filepaths = [os.path.join(directory, fp) for fp in file_names if fp.endswith('.mp3')]
-            if len(mp3_filepaths) > 0:
-                # only add the first few songs in an album to increase variety of the test subset
-                mp3_filepaths = mp3_filepaths[0:2]
-                audio_search.insert_mp3s_fingerprints_into_database(mp3_filepaths, skip_existing_songs=True)
+        insert_mp3s_from_directory_in_random_order(audio_search, root_directory)
     else:
-        mp3_filepaths_to_test = []
-        test_size_to_stop_at = 10
-        # TODO, how to get a wide breadth of test songs instead of the first alphabetical ones
-        for directory, _, file_names in os.walk(root_directory):
-            mp3_filepaths = [os.path.join(directory, fp) for fp in file_names if fp.endswith('.mp3')]
-            if len(mp3_filepaths) > 0:
-                for mp3_i, mp3_filepath in enumerate(mp3_filepaths[0:2]):
-                    try:
-                        # TODO refactor this method out of AudioSearch class
-                        mp3_metadata = audio_search.get_mp3_metadata(mp3_filepath)
-                    except KeyError:
-                        # this song doesn't have the required metadata, so we'll just skip it
-                        continue
-                    _, song_doc = audio_search.get_song_from_db_with_metadata_except_length(mp3_metadata)
-                    if song_doc is None:
-                        # This song wasn't already in the database
-                        continue
-                    mp3_filepaths_to_test.append(mp3_filepath)
-                    if len(mp3_filepaths_to_test) >= test_size_to_stop_at:
-                        break
-            if len(mp3_filepaths_to_test) >= test_size_to_stop_at:
-                break
-        audio_search.measure_performance_of_multiple_snrs_and_mp3s(mp3_filepaths_to_test)
+        get_test_set_and_test(audio_search, root_directory)
     return
 
 
