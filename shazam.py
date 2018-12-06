@@ -62,9 +62,9 @@ class AudioSearch:
             data, rate, metadata = self.load_audio_data(mp3_filepath)
             data_subset = self.get_test_subset(data)
 
-            for snr_i, snr_dbfs in enumerate(snrs_to_test):
+            for snr_i, snr_db in enumerate(snrs_to_test):
                 correct_match, predicted_song_id = self.add_noise_and_predict_one_clip(data_subset, metadata,
-                                                                                       mp3_filepath, rate, snr_dbfs)
+                                                                                       mp3_filepath, rate, snr_db)
                 performance_results[mp3_i, snr_i] = correct_match
 
         recognition_rate = performance_results.mean(axis=0) * 100.0
@@ -72,10 +72,10 @@ class AudioSearch:
             plot_recognition_rate(recognition_rate, snrs_to_test)
         return
 
-    def add_noise_and_predict_one_clip(self, data_subset, metadata, mp3_filepath, rate, snr_dbfs):
-        data_and_noise = self.add_noise(data_subset, desired_snr_db=snr_dbfs)
+    def add_noise_and_predict_one_clip(self, data_subset, metadata, mp3_filepath, rate, snr_db):
+        data_and_noise = self.add_noise(data_subset, desired_snr_db=snr_db)
         if self.time_add_noise:
-            avg_time_add_noise = self.time_a_function(lambda: self.add_noise(data_subset, desired_snr_db=snr_dbfs))
+            avg_time_add_noise = self.time_a_function(lambda: self.add_noise(data_subset, desired_snr_db=snr_db))
             print("add_noise() took", '{0:.2f}'.format(avg_time_add_noise * 1000), "ms")
         predicted_song_id, correct_match = self.predict_one_audio_clip(data_and_noise, metadata, mp3_filepath, rate)
         return correct_match, predicted_song_id
@@ -263,11 +263,6 @@ class AudioSearch:
     def db_to_linear(self, db_values):
         return 10 ** (db_values / 20)
 
-    def get_rms_dbfs_aes17(self, data):
-        rms_linear = self.get_rms_linear(data)
-        rms_dbfs_aes17 = self.convert_to_db(rms_linear) + 3
-        return rms_dbfs_aes17
-
     def convert_to_db(self, linear_values):
         return 20 * np.log10(linear_values)
 
@@ -344,6 +339,7 @@ class AudioSearch:
                                                                                                          zone_f_size,
                                                                                                          zone_t_offset,
                                                                                                          zone_t_size)
+
             if self.time_get_target_zone_bounds:
                 avg_time = self.time_a_function(
                     lambda: self.get_target_zone_bounds(anchor_f, anchor_t, f_max, t_max, zone_f_size,
