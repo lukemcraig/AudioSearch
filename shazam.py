@@ -227,6 +227,17 @@ class AudioSearch:
     def insert_one_mp3_with_fingerprints_into_database(self, metadata, fingerprints):
         song_id_in_db = self.get_or_insert_song_into_db(metadata)
         print("inserting fingerprints into database, songID=" + str(song_id_in_db), flush=True)
+        try:
+            self.insert_list_of_fingerprints(fingerprints, song_id_in_db)
+        except KeyboardInterrupt:
+            print("interrupted during insertion of ", song_id_in_db, "attempting to finish, please let me...",
+                  flush=True)
+            self.insert_list_of_fingerprints(fingerprints, song_id_in_db)
+            # ok we finished this song so now we can interrupt
+            raise KeyboardInterrupt
+        return
+
+    def insert_list_of_fingerprints(self, fingerprints, song_id_in_db):
         for fingerprint in fingerprints:
             fingerprint['songID'] = song_id_in_db
             try:
