@@ -59,7 +59,10 @@ class AudioSearch:
                 _, song_doc = self.get_song_from_db_with_metadata_except_length(mp3_metadata)
                 if song_doc is not None:
                     continue
-            print(mp3_filepath, flush=True)
+            try:
+                print(mp3_filepath, flush=True)
+            except UnicodeEncodeError:
+                print(mp3_filepath.encode('ascii', 'ignore'), flush=True)
             data, rate, metadata = self.load_audio_data(mp3_filepath)
             fingerprints = self.get_fingerprints_from_audio(data, rate)
             sys.stdout.flush()
