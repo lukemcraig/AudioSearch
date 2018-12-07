@@ -13,6 +13,7 @@ import pandas as pd
 
 import librosa
 from mutagen.easyid3 import EasyID3
+from mutagen.id3 import ID3NoHeaderError
 
 from audio_search_dbs import DuplicateKeyError
 # TODO conditional imports
@@ -47,6 +48,9 @@ class AudioSearch:
             except KeyError:
                 # this song doesn't have the required metadata, so we'll just skip it
                 continue
+            except ID3NoHeaderError:
+                # this song doesn't have the required metadata, so we'll just skip it
+                continue
 
             if skip_existing_songs:
                 # loading the audio data is slow so we optionally skip already added ones, without checking track length
@@ -63,20 +67,26 @@ class AudioSearch:
         snrs_to_test = [-15, -12, -9, -6, -3, 0, 3, 6, 9, 12, 15]
         print("testing", usable_mp3s, "at", snrs_to_test, "dBs each")
         subset_clip_lengths = [15, 10, 5]
-        markers = ["D", "s", "^"]
-        linestyles = ['-', '--', ':']
-        for clip_len_i, subset_clip_length in enumerate(subset_clip_lengths):
-            performance_results = np.zeros((len(usable_mp3s), len(snrs_to_test)), dtype=bool)
-            for mp3_i, mp3_filepath in enumerate(usable_mp3s):
-                print(mp3_i, mp3_filepath, "/", len(usable_mp3s))
-                data, rate, metadata = self.load_audio_data(mp3_filepath)
-                data_subset = self.get_test_subset(data, subset_length=subset_clip_length * rate)
+        if self.do_plotting or True:
+            markers = ["D", "s", "^"]
+            linestyles = ['-', '--', ':']
+        performance_results_list = [np.zeros((len(usable_mp3s), len(snrs_to_test)), dtype=bool) for _ in
+                                    range(len(subset_clip_lengths))]
 
+        for mp3_i, mp3_filepath in enumerate(usable_mp3s):
+            print(mp3_i, mp3_filepath, "/", len(usable_mp3s))
+            data, rate, metadata = self.load_audio_data(mp3_filepath)
+            for clip_len_i, subset_clip_length in enumerate(subset_clip_lengths):
+                performance_results = performance_results_list[clip_len_i]
+                data_subset = self.get_test_subset(data, subset_length=subset_clip_length * rate)
                 for snr_i, snr_db in enumerate(snrs_to_test):
                     correct_match, predicted_song_id = self.add_noise_and_predict_one_clip(data_subset, metadata,
                                                                                            mp3_filepath, rate, snr_db)
                     performance_results[mp3_i, snr_i] = correct_match
-            if len(usable_mp3s) > 0:
+
+        if len(usable_mp3s) > 0:
+            for clip_len_i, subset_clip_length in enumerate(subset_clip_lengths):
+                performance_results = performance_results_list[clip_len_i]
                 recognition_rate = performance_results.mean(axis=0) * 100.0
                 if self.do_plotting or True:
                     plot_recognition_rate(recognition_rate, snrs_to_test, len(usable_mp3s),
@@ -539,8 +549,8 @@ def get_n_random_mp3s_to_test(audio_search, root_directory, test_size):
 
 
 def get_test_set_and_test(audio_search, root_directory):
-    test_list_json_read_path = None
-    # test_list_json_read_path = 'test_mp3_paths_40.json'
+    # test_list_json_read_path = None
+    test_list_json_read_path = 'test_mp3_paths_250.json'
     if test_list_json_read_path is not None:
         with open(test_list_json_read_path, 'r')as json_fp:
             mp3_filepaths_to_test = json.load(json_fp)
