@@ -33,7 +33,12 @@ class MongoAudioPrintDB(AudioPrintsDB):
         return new_id
 
     def insert_one_song(self, song):
-        insert_song_result = self.songs_collection.insert_one(song)
+        try:
+            insert_song_result = self.songs_collection.insert_one(song)
+        except pymongo.errors.DuplicateKeyError:
+            # increment the key and try again
+            song['_id'] += 1
+            return self.insert_one_song(song)
         return insert_song_result.inserted_id
 
     def find_db_fingerprints_with_hash_key(self, fingerprint):

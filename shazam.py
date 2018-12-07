@@ -250,7 +250,7 @@ class AudioSearch:
             song['_id'] = new_id
 
             inserted_id = self.audio_prints_db.insert_one_song(song)
-            print("songID=", new_id)
+            print("songID=", inserted_id)
             return inserted_id
         else:
             return song_doc['_id']
@@ -614,7 +614,6 @@ def insert_mp3s_from_directory_in_random_order(audio_prints_db, root_directory, 
     split_mp3_list = np.array_split(all_mp3_file_paths, n_processes)
     for i, all_mp3_file_paths_for_proc in enumerate(split_mp3_list):
         print("spawning process", i, "for, at most,", len(all_mp3_file_paths_for_proc), "mp3s")
-        # all_mp3_file_paths_for_proc = all_mp3_file_paths[i * increment:(i + 1) * increment]
         p = Process(target=connect_to_database_and_insert_mp3s_fingerprints_into_database,
                     args=(audio_prints_db, all_mp3_file_paths_for_proc.tolist(),))
         p.start()
@@ -627,6 +626,8 @@ def insert_mp3s_from_directory_in_random_order(audio_prints_db, root_directory, 
             print(p.pid, "is alive?:", p_is_alive)
             if p_is_alive:
                 all_finished = False
+            # else:
+            #     process_list.remove(p)
         print("---")
         if all_finished:
             break
@@ -639,7 +640,7 @@ def main(insert_into_database=True, root_directory='G:\\Users\\Luke\\Music\\iTun
     audio_prints_db = MongoAudioPrintDB
     # audio_prints_db = RamAudioPrintDB
     if insert_into_database:
-        insert_mp3s_from_directory_in_random_order(audio_prints_db, root_directory, n_processes=1)
+        insert_mp3s_from_directory_in_random_order(audio_prints_db, root_directory, n_processes=8)
     else:
         audio_search = AudioSearch(audio_prints_db=audio_prints_db())
         get_test_set_and_test(audio_search, root_directory)
