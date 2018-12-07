@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import time
 import timeit
 import random
 from multiprocessing import Process
@@ -230,24 +231,13 @@ class AudioSearch:
     def insert_one_mp3_with_fingerprints_into_database(self, metadata, fingerprints):
         song_id_in_db = self.get_or_insert_song_into_db(metadata)
         print("inserting fingerprints into database, songID=" + str(song_id_in_db), flush=True)
-        try:
-            self.insert_list_of_fingerprints(fingerprints, song_id_in_db)
-        except KeyboardInterrupt:
-            print("interrupted during insertion of ", song_id_in_db, "attempting to finish, please let me...",
-                  flush=True)
-            self.insert_list_of_fingerprints(fingerprints, song_id_in_db)
-            # ok we finished this song so now we can interrupt
-            raise KeyboardInterrupt
+        self.insert_list_of_fingerprints(fingerprints, song_id_in_db)
         return
 
     def insert_list_of_fingerprints(self, fingerprints, song_id_in_db):
         for fingerprint in fingerprints:
             fingerprint['songID'] = song_id_in_db
-            try:
-                self.audio_prints_db.insert_one_fingerprint(fingerprint)
-            except DuplicateKeyError:
-                # song already exists in db
-                continue
+        self.audio_prints_db.insert_many_fingerprints(fingerprints)
         print("finished fingerprints into database, songID=" + str(song_id_in_db), flush=True)
         return
 
@@ -260,6 +250,7 @@ class AudioSearch:
             song['_id'] = new_id
 
             inserted_id = self.audio_prints_db.insert_one_song(song)
+            print("songID=", new_id)
             return inserted_id
         else:
             return song_doc['_id']
@@ -611,7 +602,7 @@ def connect_to_database_and_insert_mp3s_fingerprints_into_database(audio_prints_
     return
 
 
-def insert_mp3s_from_directory_in_random_order(audio_prints_db, root_directory):
+def insert_mp3s_from_directory_in_random_order(audio_prints_db, root_directory, n_processes):
     all_mp3_file_paths = []
     for directory, _, file_names in os.walk(root_directory):
         mp3_filepaths = [os.path.join(directory, fp) for fp in file_names if fp.endswith('.mp3')]
@@ -619,16 +610,28 @@ def insert_mp3s_from_directory_in_random_order(audio_prints_db, root_directory):
             all_mp3_file_paths += mp3_filepaths
     # shuffle the order of insertion so if we don't use all the mp3s we'll get a random sample
     random.shuffle(all_mp3_file_paths)
-    n_processess = 4
-    # increment = len(all_mp3_file_paths) // n_processess
-    split_mp3_list = np.array_split(all_mp3_file_paths, n_processess)
+    process_list = []
+    split_mp3_list = np.array_split(all_mp3_file_paths, n_processes)
     for i, all_mp3_file_paths_for_proc in enumerate(split_mp3_list):
         print("spawning process", i, "for, at most,", len(all_mp3_file_paths_for_proc), "mp3s")
         # all_mp3_file_paths_for_proc = all_mp3_file_paths[i * increment:(i + 1) * increment]
         p = Process(target=connect_to_database_and_insert_mp3s_fingerprints_into_database,
                     args=(audio_prints_db, all_mp3_file_paths_for_proc.tolist(),))
         p.start()
-    # audio_search.insert_mp3s_fingerprints_into_database(all_mp3_file_paths, skip_existing_songs=True)
+        process_list.append(p)
+    while True:
+        all_finished = True
+        for p in process_list:
+            p.join(1)
+            p_is_alive = p.is_alive()
+            print(p.pid, "is alive?:", p_is_alive)
+            if p_is_alive:
+                all_finished = False
+        print("---")
+        if all_finished:
+            break
+        time.sleep(10)
+
     return
 
 
@@ -636,7 +639,7 @@ def main(insert_into_database=True, root_directory='G:\\Users\\Luke\\Music\\iTun
     audio_prints_db = MongoAudioPrintDB
     # audio_prints_db = RamAudioPrintDB
     if insert_into_database:
-        insert_mp3s_from_directory_in_random_order(audio_prints_db, root_directory)
+        insert_mp3s_from_directory_in_random_order(audio_prints_db, root_directory, n_processes=1)
     else:
         audio_search = AudioSearch(audio_prints_db=audio_prints_db())
         get_test_set_and_test(audio_search, root_directory)

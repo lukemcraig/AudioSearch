@@ -37,8 +37,6 @@ class RamAudioPrintDB(AudioPrintsDB):
         print(len(self.songs_hashtable), "songs")
         return
 
-    #     TODO saving the db to disk
-
     def insert_one_fingerprint(self, fingerprint):
         hash_ = fingerprint.pop("hash")
         try:
@@ -49,6 +47,12 @@ class RamAudioPrintDB(AudioPrintsDB):
             existing_fingerprints.append(fingerprint)
         except KeyError:
             self.fingerprints_hashtable[hash_] = [fingerprint]
+        return
+
+    #     TODO saving the db to disk
+
+    def insert_many_fingerprints(self, fingerprints):
+        raise NotImplementedError
         return
 
     def find_one_song(self, song):

@@ -17,6 +17,10 @@ class MongoAudioPrintDB(AudioPrintsDB):
             raise DuplicateKeyError
         return
 
+    def insert_many_fingerprints(self, fingerprints):
+        self.fingerprints_collection.insert_many(fingerprints)
+        return
+
     def find_one_song(self, song):
         return self.songs_collection.find_one(song)
 
