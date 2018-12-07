@@ -1,0 +1,6 @@
+when multiprocessesing with 8 processes, averaging over 2 minutes:
+song_count: 8274,time: Fri Dec 07 2018 00:08:34 GMT-0500 (Eastern Standard Time)
+song_count: 8359,time: Fri Dec 07 2018 00:10:35 GMT-0500 (Eastern Standard Time)
+song_count_delta: 85,time_delta: 121481
+0.6996978951440966 songs per second (or 1.43 seconds per song)
+songs were 225.621158045977 seconds long on average

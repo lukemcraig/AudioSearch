@@ -642,7 +642,7 @@ def main(insert_into_database=True, root_directory='G:\\Users\\Luke\\Music\\iTun
     audio_prints_db = MongoAudioPrintDB
     # audio_prints_db = RamAudioPrintDB
     if insert_into_database:
-        insert_mp3s_from_directory_in_random_order(audio_prints_db, root_directory, n_processes=4)
+        insert_mp3s_from_directory_in_random_order(audio_prints_db, root_directory, n_processes=8)
     else:
         audio_search = AudioSearch(audio_prints_db=audio_prints_db())
         get_test_set_and_test(audio_search, root_directory)
