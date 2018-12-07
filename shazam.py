@@ -1,7 +1,9 @@
 import json
 import os
+import sys
 import timeit
 import random
+from multiprocessing import Process
 
 import numpy as np
 import scipy.signal
@@ -57,10 +59,12 @@ class AudioSearch:
                 _, song_doc = self.get_song_from_db_with_metadata_except_length(mp3_metadata)
                 if song_doc is not None:
                     continue
-            print(mp3_filepath)
+            print(mp3_filepath, flush=True)
             data, rate, metadata = self.load_audio_data(mp3_filepath)
             fingerprints = self.get_fingerprints_from_audio(data, rate)
+            sys.stdout.flush()
             self.insert_one_mp3_with_fingerprints_into_database(metadata, fingerprints)
+            sys.stdout.flush()
         return
 
     def measure_performance_of_multiple_snrs_and_mp3s(self, usable_mp3s):
@@ -222,7 +226,7 @@ class AudioSearch:
 
     def insert_one_mp3_with_fingerprints_into_database(self, metadata, fingerprints):
         song_id_in_db = self.get_or_insert_song_into_db(metadata)
-        print("inserting fingerprints into database")
+        print("inserting fingerprints into database, songID=" + str(song_id_in_db), flush=True)
         for fingerprint in fingerprints:
             fingerprint['songID'] = song_id_in_db
             try:
@@ -230,6 +234,7 @@ class AudioSearch:
             except DuplicateKeyError:
                 # song already exists in db
                 continue
+        print("finished fingerprints into database, songID=" + str(song_id_in_db), flush=True)
         return
 
     def get_or_insert_song_into_db(self, metadata):
@@ -297,7 +302,7 @@ class AudioSearch:
         return np.sqrt(np.mean(np.square(data)))
 
     def load_audio_data(self, filepath):
-        print("loading audio")
+        print("loading audio", flush=True)
         desired_rate = 8000
         data, rate = librosa.load(filepath, mono=True, sr=desired_rate)
         assert rate == desired_rate
@@ -503,6 +508,10 @@ class AudioSearch:
         peak_f = np.right_shift(key, np.uint32(20))
         return peak_f, second_peak_f, time_delta
 
+    def print_list(self, list_to_print):
+        print(list_to_print)
+        return
+
 
 def get_mp3_genres(filepath):
     mp3tags = EasyID3(filepath)
@@ -579,7 +588,16 @@ def get_distribution_of_genres(mp3_filepaths_to_test):
     return unique_genres, unique_genres_counts
 
 
-def insert_mp3s_from_directory_in_random_order(audio_search, root_directory):
+def connect_to_database_and_insert_mp3s_fingerprints_into_database(audio_prints_db, mp3_filepaths):
+    sys.stdout = open("logs\\insert_" + str(os.getpid()) + ".log", "a")
+    sys.stderr = open("logs\\insert_" + str(os.getpid()) + "_err.log", "a")
+    audio_search = AudioSearch(audio_prints_db=audio_prints_db())
+    sys.stdout.flush()
+    audio_search.insert_mp3s_fingerprints_into_database(mp3_filepaths, skip_existing_songs=True)
+    return
+
+
+def insert_mp3s_from_directory_in_random_order(audio_prints_db, root_directory):
     all_mp3_file_paths = []
     for directory, _, file_names in os.walk(root_directory):
         mp3_filepaths = [os.path.join(directory, fp) for fp in file_names if fp.endswith('.mp3')]
@@ -587,18 +605,26 @@ def insert_mp3s_from_directory_in_random_order(audio_search, root_directory):
             all_mp3_file_paths += mp3_filepaths
     # shuffle the order of insertion so if we don't use all the mp3s we'll get a random sample
     random.shuffle(all_mp3_file_paths)
-    audio_search.insert_mp3s_fingerprints_into_database(all_mp3_file_paths, skip_existing_songs=True)
+    n_processess = 4
+    # increment = len(all_mp3_file_paths) // n_processess
+    split_mp3_list = np.array_split(all_mp3_file_paths, n_processess)
+    for i, all_mp3_file_paths_for_proc in enumerate(split_mp3_list):
+        print("spawning process", i, "for, at most,", len(all_mp3_file_paths_for_proc), "mp3s")
+        # all_mp3_file_paths_for_proc = all_mp3_file_paths[i * increment:(i + 1) * increment]
+        p = Process(target=connect_to_database_and_insert_mp3s_fingerprints_into_database,
+                    args=(audio_prints_db, all_mp3_file_paths_for_proc.tolist(),))
+        p.start()
+    # audio_search.insert_mp3s_fingerprints_into_database(all_mp3_file_paths, skip_existing_songs=True)
+    return
 
 
-def main(insert_into_database=False, root_directory='G:\\Users\\Luke\\Music\\iTunes\\iTunes Media\\Music\\'):
-    audio_prints_db = MongoAudioPrintDB()
+def main(insert_into_database=True, root_directory='G:\\Users\\Luke\\Music\\iTunes\\iTunes Media\\Music\\'):
+    audio_prints_db = MongoAudioPrintDB
     # audio_prints_db = RamAudioPrintDB()
-
-    audio_search = AudioSearch(audio_prints_db=audio_prints_db)
-
     if insert_into_database:
-        insert_mp3s_from_directory_in_random_order(audio_search, root_directory)
+        insert_mp3s_from_directory_in_random_order(audio_prints_db, root_directory)
     else:
+        audio_search = AudioSearch(audio_prints_db=audio_prints_db())
         get_test_set_and_test(audio_search, root_directory)
     return
 

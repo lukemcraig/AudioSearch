@@ -38,5 +38,5 @@ class MongoAudioPrintDB(AudioPrintsDB):
     def get_client(self):
         print("getting client...")
         client = pymongo.MongoClient('mongodb://localhost:27017')
-        print("got client")
+        print("got client", flush=True)
         return client
