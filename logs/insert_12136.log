@@ -1,0 +1,114 @@
+getting client...
+got client
+G:\Users\Luke\Music\iTunes\iTunes Media\Music\Daniel Johnston\Songs of Pain\1-15 Urge.mp3
+loading audio
+get_spectrogram
+find_spectrogram_peaks
+avg_peaks_per_second 2.9289052001837046
+n_peaks= 452
+avg_n_pairs_per_peak 6.084070796460177
+querying song in database
+inserting song into database
+inserting fingerprints into database, songID=5326
+finished fingerprints into database, songID=5326
+G:\Users\Luke\Music\iTunes\iTunes Media\Music\The Jimi Hendrix Experience\Axis_ Bold As Love\10 She's So Fine.mp3
+loading audio
+get_spectrogram
+find_spectrogram_peaks
+avg_peaks_per_second 3.167012796868176
+n_peaks= 504
+avg_n_pairs_per_peak 6.571428571428571
+querying song in database
+inserting song into database
+inserting fingerprints into database, songID=5331
+finished fingerprints into database, songID=5331
+G:\Users\Luke\Music\iTunes\iTunes Media\Music\Grateful Dead\Terrapin Station\06 Terrapin Station.mp3
+loading audio
+get_spectrogram
+find_spectrogram_peaks
+avg_peaks_per_second 3.3616193943191544
+n_peaks= 3294
+avg_n_pairs_per_peak 6.942926533090468
+querying song in database
+inserting song into database
+inserting fingerprints into database, songID=5345
+finished fingerprints into database, songID=5345
+G:\Users\Luke\Music\iTunes\iTunes Media\Music\Bruce Haack & Esther Nelson\Listen Compute Rock Home_ The Best Of Di\11 Clocks.mp3
+loading audio
+get_spectrogram
+find_spectrogram_peaks
+avg_peaks_per_second 3.091697112092472
+n_peaks= 754
+avg_n_pairs_per_peak 6.720159151193634
+querying song in database
+inserting song into database
+inserting fingerprints into database, songID=5352
+finished fingerprints into database, songID=5352
+G:\Users\Luke\Music\iTunes\iTunes Media\Music\The Flaming Lips\Transmissions from the Satellite Heart\08 Moth in the Incubator.mp3
+loading audio
+get_spectrogram
+find_spectrogram_peaks
+avg_peaks_per_second 2.912025955013947
+n_peaks= 736
+avg_n_pairs_per_peak 5.952445652173913
+querying song in database
+inserting song into database
+inserting fingerprints into database, songID=5358
+finished fingerprints into database, songID=5358
+G:\Users\Luke\Music\iTunes\iTunes Media\Music\Various Artists\Perfect As Cats_ A Tribute To The Cure\13 Kyoto Song.mp3
+loading audio
+get_spectrogram
+find_spectrogram_peaks
+avg_peaks_per_second 3.251311764263051
+n_peaks= 772
+avg_n_pairs_per_peak 7.022020725388601
+querying song in database
+inserting song into database
+inserting fingerprints into database, songID=5361
+finished fingerprints into database, songID=5361
+G:\Users\Luke\Music\iTunes\iTunes Media\Music\Elf Power\In A Cave\07 Window to Mars.mp3
+loading audio
+get_spectrogram
+find_spectrogram_peaks
+avg_peaks_per_second 3.259241949518647
+n_peaks= 265
+avg_n_pairs_per_peak 6.811320754716981
+querying song in database
+inserting song into database
+inserting fingerprints into database, songID=5363
+finished fingerprints into database, songID=5363
+G:\Users\Luke\Music\iTunes\iTunes Media\Music\Astronautalis\Pomegranate\08 The Case of William Smith.mp3
+loading audio
+get_spectrogram
+find_spectrogram_peaks
+avg_peaks_per_second 3.6110909575185537
+n_peaks= 927
+avg_n_pairs_per_peak 7.411003236245954
+querying song in database
+inserting song into database
+inserting fingerprints into database, songID=5367
+finished fingerprints into database, songID=5367
+G:\Users\Luke\Music\iTunes\iTunes Media\Music\Beck\Odelay\2-03 American Wasteland.mp3
+loading audio
+get_spectrogram
+find_spectrogram_peaks
+avg_peaks_per_second 3.051359423686793
+n_peaks= 496
+avg_n_pairs_per_peak 6.219758064516129
+querying song in database
+inserting song into database
+inserting fingerprints into database, songID=5370
+finished fingerprints into database, songID=5370
+G:\Users\Luke\Music\iTunes\iTunes Media\Music\Black Dice\Creature Comforts\08 Night Flight.mp3
+loading audio
+get_spectrogram
+find_spectrogram_peaks
+avg_peaks_per_second 2.9857551440809993
+n_peaks= 1182
+avg_n_pairs_per_peak 6.013536379018612
+querying song in database
+inserting song into database
+inserting fingerprints into database, songID=5375
+finished fingerprints into database, songID=5375
+G:\Users\Luke\Music\iTunes\iTunes Media\Music\Gogol Bordello\Multi Kontra Culti vs. Irony\08 Through The Roof 'N' Underground.mp3
+loading audio

@@ -620,7 +620,7 @@ def insert_mp3s_from_directory_in_random_order(audio_prints_db, root_directory):
 
 def main(insert_into_database=True, root_directory='G:\\Users\\Luke\\Music\\iTunes\\iTunes Media\\Music\\'):
     audio_prints_db = MongoAudioPrintDB
-    # audio_prints_db = RamAudioPrintDB()
+    # audio_prints_db = RamAudioPrintDB
     if insert_into_database:
         insert_mp3s_from_directory_in_random_order(audio_prints_db, root_directory)
     else:
