@@ -545,9 +545,9 @@ def get_test_set_and_test(audio_search, root_directory):
         with open(test_list_json_read_path, 'r')as json_fp:
             mp3_filepaths_to_test = json.load(json_fp)
     else:
-        test_size = 2
+        test_size = 250
         mp3_filepaths_to_test = get_n_random_mp3s_to_test(audio_search, root_directory, test_size)
-        test_list_json_write_path = 'test_mp3_paths_2.json'
+        test_list_json_write_path = 'test_mp3_paths_250.json'
         with open(test_list_json_write_path, 'w')as json_fp:
             json.dump(mp3_filepaths_to_test, json_fp)
 
