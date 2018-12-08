@@ -1,6 +1,8 @@
 from audio_search_dbs import AudioPrintsDB, DuplicateKeyError
 import json
 import csv
+import pickle
+import pandas as pd
 import sys
 from collections import OrderedDict
 import numpy as np
@@ -11,12 +13,16 @@ class RamAudioPrintDB(AudioPrintsDB):
         self.fingerprints_hashtable = {}
         # self.load_fingerprint_table_from_json()
         self.load_fingerprint_table_from_csv()
-
+        self.save_fingerprint_table_to_pickle()
         self.songs_hashtable = OrderedDict()
         self.songtitles_hashtable = {}
         # self.load_song_tables_from_json()
         self.load_song_tables_from_csv()
         pass
+
+    def save_fingerprint_table_to_pickle(self):
+
+        return
 
     def load_fingerprint_table_from_json(self):
         with open('mongoexport/small_audioprintsDB.fingerprints.json', mode='r') as f:
@@ -34,24 +40,29 @@ class RamAudioPrintDB(AudioPrintsDB):
         return
 
     def load_fingerprint_table_from_csv(self):
-        with open('mongoexport/audioprintsDB.fingerprints.csv', encoding="utf8", mode='r') as f:
-            csv_reader = csv.DictReader(f)
-            for fingerprint in csv_reader:
-                line_num = csv_reader.line_num
-                # if line_num > 10000:
-                #     break
-                print(line_num)
-                fingerprint['hash'] = np.uint32(fingerprint['hash'])
-                fingerprint['offset'] = np.uint16(fingerprint['offset'])
-                fingerprint['songID'] = np.uint16(fingerprint['songID'])
-                try:
-                    self.insert_one_fingerprint(fingerprint)
-                except DuplicateKeyError:
-                    continue
-        print(len(self.fingerprints_hashtable), "unique fingerprint hashes")
-        # this is not the actual size
-        hashtable_size = sys.getsizeof(self.fingerprints_hashtable)
-        print(hashtable_size, "bytes")
+        df_fingerprints = pd.read_csv('mongoexport/audioprintsDB.fingerprints.csv', index_col=0, encoding='utf-8',
+                                      dtype=np.uint32)
+        df_fingerprints.sort_index(inplace=True)
+        self.fingerprints_hashtable = df_fingerprints
+        print()
+        # with open('mongoexport/audioprintsDB.fingerprints.csv', encoding="utf8", mode='r') as f:
+        #     csv_reader = csv.DictReader(f)
+        #     for fingerprint in csv_reader:
+        #         line_num = csv_reader.line_num
+        #         # if line_num > 10000:
+        #         #     break
+        #         print(line_num)
+        #         fingerprint['hash'] = np.uint32(fingerprint['hash'])
+        #         fingerprint['offset'] = np.uint16(fingerprint['offset'])
+        #         fingerprint['songID'] = np.uint16(fingerprint['songID'])
+        #         try:
+        #             self.insert_one_fingerprint(fingerprint)
+        #         except DuplicateKeyError:
+        #             continue
+        # print(len(self.fingerprints_hashtable), "unique fingerprint hashes")
+        # # this is not the actual size
+        # hashtable_size = sys.getsizeof(self.fingerprints_hashtable)
+        # print(hashtable_size, "bytes")
         return
 
     def load_song_tables_from_json(self):
@@ -123,7 +134,10 @@ class RamAudioPrintDB(AudioPrintsDB):
         return song_id
 
     def find_db_fingerprints_with_hash_key(self, fingerprint):
+        # self.fingerprints_hashtable.reset_index().reset_index().set_index(["hash", "index"])
         try:
-            return self.fingerprints_hashtable[fingerprint['hash']]
+            # TODO
+            # position = self.fingerprints_hashtable.index.searchsorted(fingerprint['hash'])
+            return self.fingerprints_hashtable.loc[fingerprint['hash']]
         except KeyError:
             return None
