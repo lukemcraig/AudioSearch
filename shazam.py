@@ -1,10 +1,12 @@
 import json
 import os
 import sys
+import threading
 import time
 import timeit
 import random
 from multiprocessing import Process
+from queue import Queue
 
 import numpy as np
 import scipy.signal
@@ -47,7 +49,7 @@ class AudioSearch:
     def insert_mp3s_fingerprints_into_database(self, mp3_filepaths, skip_existing_songs=False):
         for mp3_i, mp3_filepath in enumerate(mp3_filepaths):
             try:
-                mp3_metadata = self.get_mp3_metadata(mp3_filepath)
+                mp3_metadata = get_mp3_metadata(mp3_filepath)
             except KeyError:
                 # this song doesn't have the required metadata, so we'll just skip it
                 continue
@@ -64,14 +66,14 @@ class AudioSearch:
                 print(mp3_filepath, flush=True)
             except UnicodeEncodeError:
                 print(mp3_filepath.encode('ascii', 'ignore'), flush=True)
-            data, rate, metadata = self.load_audio_data(mp3_filepath)
+            data, rate, metadata = load_audio_data(mp3_filepath)
             fingerprints = self.get_fingerprints_from_audio(data, rate)
             sys.stdout.flush()
             self.insert_one_mp3_with_fingerprints_into_database(metadata, fingerprints)
             sys.stdout.flush()
         return
 
-    def measure_performance_of_multiple_snrs_and_mp3s(self, usable_mp3s):
+    def measure_performance_of_multiple_snrs_and_mp3s(self, usable_mp3s, audio_queue):
         snrs_to_test = [-15, -12, -9, -6, -3, 0, 3, 6, 9, 12, 15]
         print("testing", usable_mp3s, "at", snrs_to_test, "dBs each")
         subset_clip_lengths = [15, 10, 5]
@@ -80,10 +82,13 @@ class AudioSearch:
             linestyles = ['-', '--', ':']
         performance_results_list = [np.zeros((len(usable_mp3s), len(snrs_to_test)), dtype=bool) for _ in
                                     range(len(subset_clip_lengths))]
-
+        # mp3_i =0
+        # while True:
         for mp3_i, mp3_filepath in enumerate(usable_mp3s):
+            print("mp3_i", mp3_i)
+            print("q size:", audio_queue.qsize())
+            data, rate, metadata = audio_queue.get()  # load_audio_data(mp3_filepath)
             print(mp3_i, mp3_filepath, "/", len(usable_mp3s))
-            data, rate, metadata = self.load_audio_data(mp3_filepath)
             for clip_len_i, subset_clip_length in enumerate(subset_clip_lengths):
                 performance_results = performance_results_list[clip_len_i]
                 data_subset = self.get_test_subset(data, subset_length=subset_clip_length * rate)
@@ -309,24 +314,6 @@ class AudioSearch:
     def get_rms_linear(self, data):
         return np.sqrt(np.mean(np.square(data)))
 
-    def load_audio_data(self, filepath):
-        print("loading audio", flush=True)
-        desired_rate = 8000
-        data, rate = librosa.load(filepath, mono=True, sr=desired_rate)
-        assert rate == desired_rate
-        metadata = self.get_mp3_metadata(filepath)
-        metadata["track_length_s"] = len(data) / rate
-        return data, rate, metadata
-
-    def get_mp3_metadata(self, filepath):
-        mp3tags = EasyID3(filepath)
-        metadata = {
-            "artist": mp3tags['artist'][0],
-            "album": mp3tags['album'][0],
-            "title": mp3tags['title'][0]
-        }
-        return metadata
-
     def get_spectrogram(self, data, rate):
         print('get_spectrogram')
         nperseg = 1024
@@ -516,9 +503,25 @@ class AudioSearch:
         peak_f = np.right_shift(key, np.uint32(20))
         return peak_f, second_peak_f, time_delta
 
-    def print_list(self, list_to_print):
-        print(list_to_print)
-        return
+
+def get_mp3_metadata(filepath):
+    mp3tags = EasyID3(filepath)
+    metadata = {
+        "artist": mp3tags['artist'][0],
+        "album": mp3tags['album'][0],
+        "title": mp3tags['title'][0]
+    }
+    return metadata
+
+
+def load_audio_data(filepath):
+    # print("loading audio", flush=True)
+    desired_rate = 8000
+    data, rate = librosa.load(filepath, mono=True, sr=desired_rate)
+    assert rate == desired_rate
+    metadata = get_mp3_metadata(filepath)
+    metadata["track_length_s"] = len(data) / rate
+    return data, rate, metadata
 
 
 def get_mp3_genres(filepath):
@@ -565,9 +568,17 @@ def get_n_random_mp3s_to_test(audio_search, root_directory, test_size):
     return mp3_filepaths_to_test
 
 
+def load_audio_data_into_queue(audio_queue, usable_mp3s):
+    for mp3_i, mp3_filepath in enumerate(usable_mp3s):
+        # print(mp3_i, mp3_filepath, "/", len(usable_mp3s))
+        data, rate, metadata = load_audio_data(mp3_filepath)
+        audio_queue.put((data, rate, metadata))
+    return
+
+
 def get_test_set_and_test(audio_search, root_directory):
     # test_list_json_read_path = None
-    test_list_json_read_path = 'test_mp3_paths_250.json'
+    test_list_json_read_path = 'test_mp3_paths_5.json'
     if test_list_json_read_path is not None:
         with open(test_list_json_read_path, 'r')as json_fp:
             mp3_filepaths_to_test = json.load(json_fp)
@@ -583,7 +594,21 @@ def get_test_set_and_test(audio_search, root_directory):
     print(unique_genres)
     print(unique_genres_counts)
 
-    audio_search.measure_performance_of_multiple_snrs_and_mp3s(mp3_filepaths_to_test)
+    audio_queue = Queue(maxsize=8)
+    consumer = threading.Thread(
+        target=audio_search.measure_performance_of_multiple_snrs_and_mp3s,
+        args=(mp3_filepaths_to_test, audio_queue),
+        name='consumer',
+    )
+    consumer.setDaemon(True)
+    consumer.start()
+    load_audio_data_into_queue(audio_queue, mp3_filepaths_to_test)
+    # audio_search.measure_performance_of_multiple_snrs_and_mp3s(mp3_filepaths_to_test, audio_queue)
+    # producer = threading.Thread(
+    #     target=load_audio_data_into_queue,
+    #     args=(mp3_filepaths_to_test, audio_queue),
+    #     name='producer',
+    # )
     return
 
 
