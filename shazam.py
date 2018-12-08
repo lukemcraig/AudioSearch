@@ -92,20 +92,23 @@ class AudioSearch:
         producer.setDaemon(True)
         producer.start()
         # load_audio_data_into_queue(audio_queue, usable_mp3s)
-
+        start_time = time.time()
         for mp3_i, mp3_filepath in enumerate(usable_mp3s):
             print("mp3_i", mp3_i)
             print("q size:", audio_queue.qsize())
             data, rate, metadata = audio_queue.get()  # load_audio_data(mp3_filepath)
             print(mp3_i, mp3_filepath, "/", len(usable_mp3s))
             for clip_len_i, subset_clip_length in enumerate(subset_clip_lengths):
+                print("subset_clip_length:", subset_clip_length, "sec")
                 performance_results = performance_results_list[clip_len_i]
                 data_subset = self.get_test_subset(data, subset_length=subset_clip_length * rate)
                 for snr_i, snr_db in enumerate(snrs_to_test):
                     correct_match, predicted_song_id = self.add_noise_and_predict_one_clip(data_subset, metadata,
                                                                                            mp3_filepath, rate, snr_db)
+                    print("snr:", snr_db, ", correct_match:", correct_match)
                     performance_results[mp3_i, snr_i] = correct_match
-
+        end_time = time.time()
+        print("elapsed wall time=", end_time - start_time, "seconds")
         if len(usable_mp3s) > 0:
             for clip_len_i, subset_clip_length in enumerate(subset_clip_lengths):
                 performance_results = performance_results_list[clip_len_i]
@@ -144,7 +147,7 @@ class AudioSearch:
         t_step = np.median(t[1:-1] - t[:-2])
         peak_locations, max_filter, max_filter_size = self.find_spectrogram_peaks(Sxx, t_step)
         avg_peaks_per_second = len(peak_locations) / t[-1]
-        print('avg_peaks_per_second', avg_peaks_per_second)
+        # print('avg_peaks_per_second', avg_peaks_per_second)
         if self.time_find_spec_peaks:
             avg_time = self.time_a_function(lambda: self.find_spectrogram_peaks(Sxx, t_step))
             print("Sxx was ", Sxx.shape)
@@ -177,7 +180,7 @@ class AudioSearch:
                                                                               n_possible_songs)
         # TODO false positives?
         correct_match = max_hist_song == song_doc['_id']
-        print("correct_match=", correct_match)
+        # print("correct_match=", correct_match)
         if self.do_plotting:
             show_hist_plot(max_hist_song, song_doc)
         return max_hist_song, correct_match
@@ -324,7 +327,7 @@ class AudioSearch:
         return np.sqrt(np.mean(np.square(data)))
 
     def get_spectrogram(self, data, rate):
-        print('get_spectrogram')
+        # print('get_spectrogram')
         nperseg = 1024
         noverlap = int(np.round(nperseg / 1.5))
         # TODO scaling?
@@ -336,7 +339,7 @@ class AudioSearch:
         return Sxx, f, t
 
     def find_spectrogram_peaks(self, Sxx, t_step, f_size_hz=500, t_size_sec=2):
-        print('find_spectrogram_peaks')
+        # print('find_spectrogram_peaks')
         max_f = 4000
         f_bins = Sxx.shape[0]
         f_per_bin = max_f / f_bins
@@ -350,7 +353,7 @@ class AudioSearch:
     def get_fingerprints_from_peaks(self, f_max, f_step, peak_locations, t_max, t_step):
         # print("get_fingerprints_from_peaks")
         n_peaks = len(peak_locations)
-        print("n_peaks=", n_peaks)
+        # print("n_peaks=", n_peaks)
         # TODO fan out factor
         fan_out_factor = 10
         # 1400hz tall zone box
@@ -434,7 +437,7 @@ class AudioSearch:
                 fingerprints.append(fingerprint)
         # df_fingerprints = pd.DataFrame(fingerprints)
         avg_n_pairs_per_peak /= n_peaks
-        print("avg_n_pairs_per_peak", avg_n_pairs_per_peak)
+        # print("avg_n_pairs_per_peak", avg_n_pairs_per_peak)
         return fingerprints
 
     def query_dataframe_for_peaks_in_target_zone_sweep_lines(self, df_peak_locations, peak_locations_t,
