@@ -247,7 +247,7 @@ class AudioSearch:
         if song_doc is None:
             print("inserting song into database")
             new_id = self.audio_prints_db.get_next_song_id()
-            if new_id >= 10000:
+            if new_id > 10000:
                 raise Exception("We reached 10,000 songs, don't insert any more.")
             song['_id'] = new_id
 
@@ -566,7 +566,7 @@ def get_n_random_mp3s_to_test(audio_search, root_directory, test_size):
 
 def get_test_set_and_test(audio_search, root_directory):
     # test_list_json_read_path = None
-    test_list_json_read_path = 'test_mp3_paths_250.json'
+    test_list_json_read_path = 'test_mp3_paths_2.json'
     if test_list_json_read_path is not None:
         with open(test_list_json_read_path, 'r')as json_fp:
             mp3_filepaths_to_test = json.load(json_fp)
@@ -638,11 +638,11 @@ def insert_mp3s_from_directory_in_random_order(audio_prints_db, root_directory, 
     return
 
 
-def main(insert_into_database=True, root_directory='G:\\Users\\Luke\\Music\\iTunes\\iTunes Media\\Music\\'):
-    audio_prints_db = MongoAudioPrintDB
-    # audio_prints_db = RamAudioPrintDB
+def main(insert_into_database=False, root_directory='G:\\Users\\Luke\\Music\\iTunes\\iTunes Media\\Music\\'):
+    # audio_prints_db = MongoAudioPrintDB
+    audio_prints_db = RamAudioPrintDB
     if insert_into_database:
-        insert_mp3s_from_directory_in_random_order(audio_prints_db, root_directory, n_processes=8)
+        insert_mp3s_from_directory_in_random_order(audio_prints_db, root_directory, n_processes=1)
     else:
         audio_search = AudioSearch(audio_prints_db=audio_prints_db())
         get_test_set_and_test(audio_search, root_directory)

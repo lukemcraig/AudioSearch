@@ -1,17 +1,21 @@
 from audio_search_dbs import AudioPrintsDB, DuplicateKeyError
 import json
+import csv
 import sys
 from collections import OrderedDict
+import numpy as np
 
 
 class RamAudioPrintDB(AudioPrintsDB):
     def __init__(self):
         self.fingerprints_hashtable = {}
-        self.load_fingerprint_table_from_json()
+        # self.load_fingerprint_table_from_json()
+        self.load_fingerprint_table_from_csv()
 
         self.songs_hashtable = OrderedDict()
         self.songtitles_hashtable = {}
-        self.load_song_tables_from_json()
+        # self.load_song_tables_from_json()
+        self.load_song_tables_from_csv()
         pass
 
     def load_fingerprint_table_from_json(self):
@@ -29,10 +33,41 @@ class RamAudioPrintDB(AudioPrintsDB):
         print(hashtable_size, "bytes")
         return
 
+    def load_fingerprint_table_from_csv(self):
+        with open('mongoexport/audioprintsDB.fingerprints.csv', encoding="utf8", mode='r') as f:
+            csv_reader = csv.DictReader(f)
+            for fingerprint in csv_reader:
+                line_num = csv_reader.line_num
+                # if line_num > 10000:
+                #     break
+                print(line_num)
+                fingerprint['hash'] = np.uint32(fingerprint['hash'])
+                fingerprint['offset'] = np.uint16(fingerprint['offset'])
+                fingerprint['songID'] = np.uint16(fingerprint['songID'])
+                try:
+                    self.insert_one_fingerprint(fingerprint)
+                except DuplicateKeyError:
+                    continue
+        print(len(self.fingerprints_hashtable), "unique fingerprint hashes")
+        # this is not the actual size
+        hashtable_size = sys.getsizeof(self.fingerprints_hashtable)
+        print(hashtable_size, "bytes")
+        return
+
     def load_song_tables_from_json(self):
         with open('mongoexport/small_audioprintsDB.songs.json', mode='r') as f:
             for line in f:
                 song = json.loads(line)
+                self.insert_one_song(song)
+        print(len(self.songs_hashtable), "songs")
+        return
+
+    def load_song_tables_from_csv(self):
+        with open('mongoexport/audioprintsDB.songs.csv', encoding="utf8", mode='r') as f:
+            csv_reader = csv.DictReader(f)
+            for song in csv_reader:
+                song['_id'] = np.uint16(song['_id'])
+                song['track_length_s'] = float(song['track_length_s'])
                 self.insert_one_song(song)
         print(len(self.songs_hashtable), "songs")
         return
