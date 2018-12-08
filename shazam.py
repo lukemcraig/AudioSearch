@@ -73,7 +73,7 @@ class AudioSearch:
             sys.stdout.flush()
         return
 
-    def measure_performance_of_multiple_snrs_and_mp3s(self, usable_mp3s, audio_queue):
+    def measure_performance_of_multiple_snrs_and_mp3s(self, usable_mp3s):
         snrs_to_test = [-15, -12, -9, -6, -3, 0, 3, 6, 9, 12, 15]
         print("testing", usable_mp3s, "at", snrs_to_test, "dBs each")
         subset_clip_lengths = [15, 10, 5]
@@ -82,8 +82,17 @@ class AudioSearch:
             linestyles = ['-', '--', ':']
         performance_results_list = [np.zeros((len(usable_mp3s), len(snrs_to_test)), dtype=bool) for _ in
                                     range(len(subset_clip_lengths))]
-        # mp3_i =0
-        # while True:
+
+        audio_queue = Queue(maxsize=8)
+        producer = threading.Thread(
+            target=load_audio_data_into_queue,
+            args=(audio_queue, usable_mp3s),
+            name='producer',
+        )
+        producer.setDaemon(True)
+        producer.start()
+        # load_audio_data_into_queue(audio_queue, usable_mp3s)
+
         for mp3_i, mp3_filepath in enumerate(usable_mp3s):
             print("mp3_i", mp3_i)
             print("q size:", audio_queue.qsize())
@@ -594,21 +603,7 @@ def get_test_set_and_test(audio_search, root_directory):
     print(unique_genres)
     print(unique_genres_counts)
 
-    audio_queue = Queue(maxsize=8)
-    consumer = threading.Thread(
-        target=audio_search.measure_performance_of_multiple_snrs_and_mp3s,
-        args=(mp3_filepaths_to_test, audio_queue),
-        name='consumer',
-    )
-    consumer.setDaemon(True)
-    consumer.start()
-    load_audio_data_into_queue(audio_queue, mp3_filepaths_to_test)
-    # audio_search.measure_performance_of_multiple_snrs_and_mp3s(mp3_filepaths_to_test, audio_queue)
-    # producer = threading.Thread(
-    #     target=load_audio_data_into_queue,
-    #     args=(mp3_filepaths_to_test, audio_queue),
-    #     name='producer',
-    # )
+    audio_search.measure_performance_of_multiple_snrs_and_mp3s(mp3_filepaths_to_test)
     return
 
 
