@@ -10,6 +10,12 @@ class MongoAudioPrintDB(AudioPrintsDB):
         self.songs_collection = self.client.audioprintsDB.songs
         pass
 
+    def get_db_fingerprint_song_id(self, fingerprint):
+        return fingerprint['songID']
+
+    def get_db_fingerprint_offset(self, fingerprint):
+        return fingerprint['offset']
+
     def insert_one_fingerprint(self, fingerprint):
         try:
             self.fingerprints_collection.insert_one(fingerprint)

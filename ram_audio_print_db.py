@@ -13,15 +13,21 @@ class RamAudioPrintDB(AudioPrintsDB):
         self.fingerprints_hashtable = {}
         # self.load_fingerprint_table_from_json()
         self.load_fingerprint_table_from_csv()
-        self.save_fingerprint_table_to_pickle()
+        # self.save_fingerprint_table_to_pickle()
         self.songs_hashtable = OrderedDict()
         self.songtitles_hashtable = {}
         # self.load_song_tables_from_json()
         self.load_song_tables_from_csv()
         pass
 
-    def save_fingerprint_table_to_pickle(self):
+    def get_db_fingerprint_offset(self, fingerprint):
+        return fingerprint[1].loc['offset']
 
+    def get_db_fingerprint_song_id(self, fingerprint):
+        return fingerprint[1].loc['songID']
+
+    def save_fingerprint_table_to_pickle(self):
+        # TODO
         return
 
     def load_fingerprint_table_from_json(self):
@@ -40,6 +46,7 @@ class RamAudioPrintDB(AudioPrintsDB):
         return
 
     def load_fingerprint_table_from_csv(self):
+        print("loading database into dataframe")
         df_fingerprints = pd.read_csv('mongoexport/audioprintsDB.fingerprints.csv', index_col=0, encoding='utf-8',
                                       dtype=np.uint32)
         df_fingerprints.sort_index(inplace=True)
@@ -138,6 +145,10 @@ class RamAudioPrintDB(AudioPrintsDB):
         try:
             # TODO
             # position = self.fingerprints_hashtable.index.searchsorted(fingerprint['hash'])
-            return self.fingerprints_hashtable.loc[fingerprint['hash']]
+            matching_fingerprints = self.fingerprints_hashtable.loc[fingerprint['hash']]
+            try:
+                return matching_fingerprints.iterrows()
+            except AttributeError:
+                return [matching_fingerprints]
         except KeyError:
             return None

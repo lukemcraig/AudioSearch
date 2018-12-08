@@ -30,3 +30,11 @@ class AudioPrintsDB(ABC):
     @abstractmethod
     def find_db_fingerprints_with_hash_key(self, fingerprint):
         pass
+
+    @abstractmethod
+    def get_db_fingerprint_song_id(self, fingerprint):
+        pass
+
+    @abstractmethod
+    def get_db_fingerprint_offset(self, fingerprint):
+        pass

@@ -221,11 +221,10 @@ class AudioSearch:
             db_fp_iterator = self.audio_prints_db.find_db_fingerprints_with_hash_key(fingerprint)
             if db_fp_iterator is not None:
                 for db_fp in db_fp_iterator:
-                    # TODO abstract this
-                    db_fp_song_id = db_fp['songID']
+                    db_fp_song_id = self.audio_prints_db.get_db_fingerprint_song_id(db_fp)
                     db_fp_song_ids.append(db_fp_song_id)
                     # print(db_fp_song_id)
-                    db_fp_offset = db_fp['offset']
+                    db_fp_offset = self.audio_prints_db.get_db_fingerprint_offset(db_fp)
                     db_fp_offsets.append(db_fp_offset)
 
                     local_fp_offset = fingerprint['offset']
@@ -663,8 +662,8 @@ def insert_mp3s_from_directory_in_random_order(audio_prints_db, root_directory, 
 
 
 def main(insert_into_database=False, root_directory='G:\\Users\\Luke\\Music\\iTunes\\iTunes Media\\Music\\'):
-    audio_prints_db = MongoAudioPrintDB
-    # audio_prints_db = RamAudioPrintDB
+    # audio_prints_db = MongoAudioPrintDB
+    audio_prints_db = RamAudioPrintDB
     if insert_into_database:
         insert_mp3s_from_directory_in_random_order(audio_prints_db, root_directory, n_processes=1)
     else:
