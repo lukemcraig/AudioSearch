@@ -77,7 +77,7 @@ class AudioSearch:
 
     def measure_performance_of_multiple_snrs_and_mp3s(self, usable_mp3s):
         snrs_to_test = [-15, -12, -9, -6, -3, 0, 3, 6, 9, 12, 15]
-        # snrs_to_test = [30]
+        # snrs_to_test = [300]
         print("testing", usable_mp3s, "at", snrs_to_test, "dBs each")
         subset_clip_lengths = [15, 10, 5]
         if self.do_plotting or True:
@@ -159,7 +159,7 @@ class AudioSearch:
             print("Sxx was ", Sxx.shape)
             print("find_spectrogram_peaks() took", '{0:.2f}'.format(avg_time * 1000), "ms")
         if self.do_plotting:
-            plot_spectrogram_and_peak_subplots(Sxx, f, max_filter, max_filter_size, peak_locations, t)
+            plot_spectrogram_and_peak_subplots_detailed(Sxx, f, max_filter, max_filter_size, peak_locations, t)
 
         fingerprints = self.get_fingerprints_from_peaks(len(f) - 1, f_step, peak_locations, len(t) - 1, t_step)
         return fingerprints

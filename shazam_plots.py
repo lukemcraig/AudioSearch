@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt, ticker as plticker, colors as colors, cm, 
 def plot_grid_of_filter_size(max_filter_size):
     plt.gca().xaxis.set_major_locator(plticker.MultipleLocator(base=max_filter_size[0]))
     plt.gca().yaxis.set_major_locator(plticker.MultipleLocator(base=max_filter_size[1]))
-    plt.grid(True, color='Black')
+    plt.grid(True, color=(0.5, 0.5, 0.5, .1))
     return
 
 
@@ -72,6 +72,8 @@ def plot_target_zone(zone_freq_start, zone_freq_end, zone_time_start, zone_time_
     f_delta = second_peak_f - anchor_f
     plt.text(anchor_t + time_delta * .5, anchor_f + f_delta * .5, "tΔ=" + str(time_delta))
     plt.title("Target Zone")
+    plt.xlabel("t index")
+    plt.ylabel("f index")
     return
 
 
@@ -102,8 +104,9 @@ def plot_spectrogram_and_peak_subplots_detailed(Sxx, f, max_filter, max_filter_s
     plot_spectrogram(Sxx)
     plt.subplot(2, 3, 2, sharex=ax, sharey=ax)
     plt.title("2. Max Filtered")
-    plot_grid_of_filter_size(max_filter_size)
+    # plot_grid_of_filter_size(max_filter_size)
     plot_spectrogram(max_filter)
+    plot_grid_of_filter_size(max_filter_size)
     # rect = patches.Rectangle((0, 0), max_filter_size[1] * t_step, max_filter_size[0] * f_step, edgecolor="black")
     # plt.gca().add_patch(rect)
     # ylim = plt.ylim()
@@ -129,8 +132,8 @@ def plot_spectrogram_and_peak_subplots_detailed(Sxx, f, max_filter, max_filter_s
     # plot_spectrogram(Sxx, f, t)
     plot_grid_of_filter_size(max_filter_size)
     plot_spectrogram_peaks(peak_locations)
-    plt.xlim(0, 500)
-    plt.ylim(0, 512)
+    # plt.xlim(0, 500)
+    # plt.ylim(0, 512)
     plt.show()
     return
 
