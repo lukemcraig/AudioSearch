@@ -420,13 +420,7 @@ class AudioSearch:
                     lambda: self.get_target_zone_bounds(anchor_f, anchor_t, f_max, t_max, zone_f_size,
                                                         zone_t_offset, zone_t_size))
                 print("get_target_zone_bounds() took", '{0:.2f}'.format(avg_time * 1000), "ms")
-            if self.do_plotting or True:
-                print(i, anchor_t, anchor_f)
-                use_ggplot()
-                reset_plot_lims()
-                plot_spectrogram_peaks(peak_locations)
-                plot_target_zone(zone_freq_start, zone_freq_end, zone_time_start, zone_time_end)
-                plot_show()
+
             # paired_df_peak_locations_sweep, n_pairs_sweep = self.query_dataframe_for_peaks_in_target_zone_sweep_lines(
             #     df_peak_locations, peak_locations_t_sort, peak_locations_f_sort,
             #     zone_freq_end, zone_freq_start, zone_time_end, zone_time_start)
@@ -444,7 +438,7 @@ class AudioSearch:
                 print("query_dataframe_for_peaks_in_target_zone_binary_search() took",
                       '{0:.2f}'.format(avg_time * 1000), "ms")
 
-            old_peaks_in_target_zone_method = True
+            old_peaks_in_target_zone_method = False
             if old_peaks_in_target_zone_method:
                 paired_df_peak_locations_old, n_pairs_old = self.query_dataframe_for_peaks_in_target_zone(
                     df_peak_locations, zone_freq_end, zone_freq_start, zone_time_end, zone_time_start)
@@ -464,11 +458,21 @@ class AudioSearch:
             for j, second_peak in paired_df_peak_locations.iterrows():
                 # print("    ", j, "/", n_pairs)
                 second_peak_f = second_peak['f']
-                time_delta = second_peak['t'] - anchor_t
+                second_peak_t_ = second_peak['t']
+                time_delta = second_peak_t_ - anchor_t
                 combined_key = self.combine_parts_into_key(anchor_f, second_peak_f, time_delta)
                 # print(combined_key)
                 fingerprint = {'hash': int(combined_key), 'offset': int(anchor_t)}
                 fingerprints.append(fingerprint)
+
+            if self.do_plotting:
+                print(i, anchor_t, anchor_f)
+                use_ggplot()
+                reset_plot_lims()
+                plot_spectrogram_peaks(peak_locations)
+                plot_target_zone(zone_freq_start, zone_freq_end, zone_time_start, zone_time_end, anchor_t, anchor_f,
+                                 second_peak_t_, second_peak_f)
+                plot_show()
         # df_fingerprints = pd.DataFrame(fingerprints)
         avg_n_pairs_per_peak /= n_peaks
         # print("avg_n_pairs_per_peak", avg_n_pairs_per_peak)

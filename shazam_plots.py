@@ -59,11 +59,19 @@ def plot_recognition_rate(recognition_rate, snrs_to_test, n_songs, clips_length,
     return
 
 
-def plot_target_zone(zone_freq_start, zone_freq_end, zone_time_start, zone_time_end):
+def plot_target_zone(zone_freq_start, zone_freq_end, zone_time_start, zone_time_end, anchor_t, anchor_f, second_peak_t_,
+                     second_peak_f):
     rect = patches.Rectangle((zone_time_start, zone_freq_start), zone_time_end - zone_time_start,
                              zone_freq_end - zone_freq_start, edgecolor="black",
                              facecolor=(.1, .1, .7, .2))
     plt.gca().add_patch(rect)
+    plt.text(anchor_t, anchor_f, "f1=" + str(anchor_f))
+    plt.text(second_peak_t_, second_peak_f, "f2=" + str(second_peak_f))
+    plt.plot([anchor_t, second_peak_t_], [anchor_f, second_peak_f], linestyle='--', linewidth=1)
+    time_delta = second_peak_t_ - anchor_t
+    f_delta = second_peak_f - anchor_f
+    plt.text(anchor_t + time_delta * .5, anchor_f + f_delta * .5, "tΔ=" + str(time_delta))
+    plt.title("Target Zone")
     return
 
 
