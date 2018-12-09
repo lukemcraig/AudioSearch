@@ -83,7 +83,7 @@ class AudioSearch:
         performance_results_list = [np.zeros((len(usable_mp3s), len(snrs_to_test)), dtype=bool) for _ in
                                     range(len(subset_clip_lengths))]
 
-        audio_queue = Queue(maxsize=8)
+        audio_queue = Queue()
         producer = threading.Thread(
             target=load_audio_data_into_queue,
             args=(audio_queue, usable_mp3s),
@@ -218,7 +218,7 @@ class AudioSearch:
         db_fp_offsets = []
         local_fp_offsets = []
         for fingerprint_i, fingerprint in enumerate(fingerprints):
-            print(fingerprint_i)
+            # print(fingerprint_i)
             db_fp_iterator = self.audio_prints_db.find_db_fingerprints_with_hash_key(fingerprint)
             if db_fp_iterator is not None:
                 for db_fp in db_fp_iterator:
@@ -590,7 +590,7 @@ def load_audio_data_into_queue(audio_queue, usable_mp3s):
 
 def get_test_set_and_test(audio_search, root_directory):
     # test_list_json_read_path = None
-    test_list_json_read_path = 'test_mp3_paths_5.json'
+    test_list_json_read_path = 'test_mp3_paths_250.json'
     if test_list_json_read_path is not None:
         with open(test_list_json_read_path, 'r')as json_fp:
             mp3_filepaths_to_test = json.load(json_fp)
