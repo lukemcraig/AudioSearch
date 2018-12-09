@@ -112,6 +112,8 @@ class AudioSearch:
         if len(usable_mp3s) > 0:
             for clip_len_i, subset_clip_length in enumerate(subset_clip_lengths):
                 performance_results = performance_results_list[clip_len_i]
+                np.savetxt("perf_results\\performance_results_%d.csv" % subset_clip_length, performance_results,
+                           delimiter=',', header=str(snrs_to_test))
                 recognition_rate = performance_results.mean(axis=0) * 100.0
                 if self.do_plotting or True:
                     plot_recognition_rate(recognition_rate, snrs_to_test, len(usable_mp3s),
@@ -119,6 +121,7 @@ class AudioSearch:
                                           linestyle=linestyles[clip_len_i])
         if self.do_plotting or True:
             plot_show()
+
         return
 
     def add_noise_and_predict_one_clip(self, data_subset, metadata, mp3_filepath, rate, snr_db):
@@ -176,24 +179,39 @@ class AudioSearch:
             # there were no fingerprints found, so we return an incorrect match result
             return -1, False
 
-        max_hist_song = self.get_the_most_likely_song_from_all_the_histograms(df_fingerprint_matches, index_set,
-                                                                              n_possible_songs)
+        max_hist_song = self.get_the_most_likely_song_from_all_the_histograms(df_fingerprint_matches, n_possible_songs,
+                                                                              index_set)
         # TODO false positives?
         correct_match = max_hist_song == song_doc['_id']
         # print("correct_match=", correct_match)
-        if self.do_plotting:
+        if self.do_plotting or True:
             show_hist_plot(max_hist_song, song_doc)
         return max_hist_song, correct_match
 
-    def get_the_most_likely_song_from_all_the_histograms(self, df_fingerprint_matches, index_set, n_possible_songs):
+    def get_the_most_likely_song_from_all_the_histograms(self, df_fingerprint_matches, n_possible_songs, index_set):
+        print("n_possible_songs", n_possible_songs)
+        # unique_stks, unique_stks_counts = np.unique(df_fingerprint_matches, return_counts=True)
+        # stks_sorted_by_frequency = unique_stks[np.argsort(unique_stks_counts)][::-1]
+        # df_fingerprint_matches[df_fingerprint_matches['stk'] == stks_sorted_by_frequency[0]]
+
+        # unique_songs, unique_songs_counts = np.unique(df_fingerprint_matches.index, return_counts=True)
+        # songs_sorted_by_frequency = unique_songs[np.argsort(unique_songs_counts)][::-1]
+
+        # df_fingerprint_matches = df_fingerprint_matches.loc[songs_sorted_by_frequency]
         if self.do_plotting:
-            ax = start_hist_subplots(n_possible_songs)
+            # we don't want 4000 subplots
+            n_subplots = min(n_possible_songs, 2)
+            ax = start_hist_subplots(n_subplots)
         max_hist_peak = 0
         max_hist_song = None
+        # for i, song_id in enumerate([2829, 5893, 9496]):
         for i, song_id in enumerate(index_set):
-            if self.do_plotting:
-                make_next_hist_subplot(ax, i, n_possible_songs, song_id)
+            print(i)
             stks_in_songID = df_fingerprint_matches.loc[song_id]
+            if self.do_plotting:
+                if i < n_subplots:
+                    make_next_hist_subplot(ax, i, n_subplots, song_id, len(stks_in_songID))
+
             # make a histogram with bin width of 1
             unique, unique_counts = np.unique(stks_in_songID.values, return_counts=True)
             unique_max = unique.max()
@@ -202,14 +220,16 @@ class AudioSearch:
             hist[unique - unique_min] = unique_counts
             # smooth histogram for the sake of "clustered peak detection"
             filtered_hist = scipy.ndimage.filters.uniform_filter1d(hist, size=2, mode='constant')
+            # filtered_hist = hist
             max_filtered_hist = filtered_hist.max()
             if max_filtered_hist > max_hist_peak:
                 max_hist_peak = max_filtered_hist
                 max_hist_song = song_id
             if self.do_plotting:
-                plot_hist_of_stks(np.arange(unique_min, unique_max + 1), hist)
-                # overlay the filtered histogram
-                plot_hist_of_stks(np.arange(unique_min, unique_max + 1), filtered_hist, alpha=0.5)
+                if i < n_subplots:
+                    plot_hist_of_stks(np.arange(unique_min, unique_max + 1), hist)
+                    # overlay the filtered histogram
+                    # plot_hist_of_stks(np.arange(unique_min, unique_max + 1), filtered_hist, alpha=0.5)
         return max_hist_song
 
     def get_df_of_fingerprint_offsets(self, fingerprints):
@@ -590,7 +610,7 @@ def load_audio_data_into_queue(audio_queue, usable_mp3s):
 
 def get_test_set_and_test(audio_search, root_directory):
     # test_list_json_read_path = None
-    test_list_json_read_path = 'test_mp3_paths_250.json'
+    test_list_json_read_path = 'test_mp3_paths_5.json'
     if test_list_json_read_path is not None:
         with open(test_list_json_read_path, 'r')as json_fp:
             mp3_filepaths_to_test = json.load(json_fp)

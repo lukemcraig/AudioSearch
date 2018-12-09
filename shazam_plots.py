@@ -92,25 +92,31 @@ def plot_spectrogram_and_peak_subplots(Sxx, f, max_filter, max_filter_size, peak
 
 
 def start_hist_subplots(n_possible_songs):
+    plt.style.use('ggplot')
     ax = plt.subplot(n_possible_songs, 1, 1)
     return ax
 
 
-def make_next_hist_subplot(ax, i, n_possible_songs, song_id):
+def make_next_hist_subplot(ax, i, n_possible_songs, song_id, n_matching_fingerprints):
     if i > 0:
         plt.subplot(n_possible_songs, 1, i + 1, sharey=ax)
-    plt.title("song_id:" + str(song_id))
+    plt.title("song_id:" + str(song_id) + ", n_fingerprints: " + str(n_matching_fingerprints))
 
 
 def show_hist_plot(max_hist_song, song_doc):
     plt.suptitle("matching song id=" + str(max_hist_song) + ",correct song=" + str(song_doc['_id']))
     plt.tight_layout()
+
     plt.show()
 
 
 def plot_hist_of_stks(unique, filtered_hist, alpha=1):
     # hist_mpl, bin_edges_mpl, patches = plt.hist(stks_in_songID.values, bins='auto', rwidth=.7)
-    plt.bar(unique, filtered_hist, alpha=alpha)
+    x = unique[filtered_hist != 0]
+    y = filtered_hist[filtered_hist != 0]
+    plt.bar(x, y, alpha=alpha)
+    plt.ylabel("count")
+    plt.xlabel("time-offset delta")
     return
 
 
