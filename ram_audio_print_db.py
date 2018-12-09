@@ -149,6 +149,6 @@ class RamAudioPrintDB(AudioPrintsDB):
             try:
                 return matching_fingerprints.iterrows()
             except AttributeError:
-                return [matching_fingerprints]
+                return [(0, matching_fingerprints)]
         except KeyError:
             return None

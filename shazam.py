@@ -202,7 +202,7 @@ class AudioSearch:
             hist[unique - unique_min] = unique_counts
             # smooth histogram for the sake of "clustered peak detection"
             filtered_hist = scipy.ndimage.filters.uniform_filter1d(hist, size=2, mode='constant')
-            max_filtered_hist = max(filtered_hist)
+            max_filtered_hist = filtered_hist.max()
             if max_filtered_hist > max_hist_peak:
                 max_hist_peak = max_filtered_hist
                 max_hist_song = song_id
@@ -218,6 +218,7 @@ class AudioSearch:
         db_fp_offsets = []
         local_fp_offsets = []
         for fingerprint_i, fingerprint in enumerate(fingerprints):
+            print(fingerprint_i)
             db_fp_iterator = self.audio_prints_db.find_db_fingerprints_with_hash_key(fingerprint)
             if db_fp_iterator is not None:
                 for db_fp in db_fp_iterator:
@@ -662,8 +663,8 @@ def insert_mp3s_from_directory_in_random_order(audio_prints_db, root_directory, 
 
 
 def main(insert_into_database=False, root_directory='G:\\Users\\Luke\\Music\\iTunes\\iTunes Media\\Music\\'):
-    # audio_prints_db = MongoAudioPrintDB
-    audio_prints_db = RamAudioPrintDB
+    audio_prints_db = MongoAudioPrintDB
+    # audio_prints_db = RamAudioPrintDB
     if insert_into_database:
         insert_mp3s_from_directory_in_random_order(audio_prints_db, root_directory, n_processes=1)
     else:
