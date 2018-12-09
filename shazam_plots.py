@@ -53,6 +53,23 @@ def plot_recognition_rate(recognition_rate, snrs_to_test, n_songs, clips_length,
 
 
 def plot_spectrogram_and_peak_subplots(Sxx, f, max_filter, max_filter_size, peak_locations, t):
+    ax = plt.subplot(1, 3, 1)
+    plt.title("1. Spectrogram")
+    plot_spectrogram(Sxx, f, t)
+    plt.subplot(1, 3, 2, sharex=ax, sharey=ax)
+    plt.title("2. Spectrogram + Peaks")
+    plot_spectrogram(Sxx, f, t)
+    plot_spectrogram_peaks(peak_locations, f, t)
+    plt.subplot(1, 3, 3, sharex=ax, sharey=ax)
+    plt.title("3. Peaks")
+    plot_spectrogram_peaks(peak_locations, f, t)
+    plt.xlim(0, 350)
+    plt.ylim(0, 512)
+    plt.show()
+    return
+
+
+def plot_spectrogram_and_peak_subplots_detailed(Sxx, f, max_filter, max_filter_size, peak_locations, t):
     ax = plt.subplot(2, 3, 1)
     plt.title("1. Spectrogram")
     plot_spectrogram(Sxx, f, t)

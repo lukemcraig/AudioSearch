@@ -11,7 +11,7 @@ from queue import Queue
 import numpy as np
 import scipy.signal
 import scipy.ndimage.filters
-import scipy.ndimage.measurements
+# import scipy.ndimage.measurements
 import pandas as pd
 
 # import bintrees.rbtree
@@ -25,9 +25,9 @@ from audio_search_dbs import DuplicateKeyError
 from mongo_audio_print_db import MongoAudioPrintDB
 from ram_audio_print_db import RamAudioPrintDB
 
-from shazam_plots import plot_recognition_rate, plot_spectrogram_and_peak_subplots, start_hist_subplots, \
+from shazam_plots import plot_recognition_rate, plot_spectrogram_and_peak_subplots_detailed, start_hist_subplots, \
     make_next_hist_subplot, show_hist_plot, plot_hist_of_stks, plot_show, plot_scatter_of_fingerprint_offsets, \
-    plot_spectrogram_peaks
+    plot_spectrogram_peaks, plot_spectrogram_and_peak_subplots
 
 
 class AudioSearch:
@@ -75,6 +75,7 @@ class AudioSearch:
 
     def measure_performance_of_multiple_snrs_and_mp3s(self, usable_mp3s):
         snrs_to_test = [-15, -12, -9, -6, -3, 0, 3, 6, 9, 12, 15]
+        snrs_to_test = [30]
         print("testing", usable_mp3s, "at", snrs_to_test, "dBs each")
         subset_clip_lengths = [15, 10, 5]
         if self.do_plotting or True:
@@ -95,7 +96,7 @@ class AudioSearch:
         start_time = time.time()
         for mp3_i, mp3_filepath in enumerate(usable_mp3s):
             print("mp3_i", mp3_i)
-            print("q size:", audio_queue.qsize())
+            print("queue size:", audio_queue.qsize())
             data, rate, metadata = audio_queue.get()  # load_audio_data(mp3_filepath)
             print(mp3_i, mp3_filepath, "/", len(usable_mp3s))
             for clip_len_i, subset_clip_length in enumerate(subset_clip_lengths):
@@ -373,7 +374,7 @@ class AudioSearch:
     def get_fingerprints_from_peaks(self, f_max, f_step, peak_locations, t_max, t_step):
         # print("get_fingerprints_from_peaks")
         n_peaks = len(peak_locations)
-        # print("n_peaks=", n_peaks)
+        print("n_peaks=", n_peaks)
         # TODO fan out factor
         fan_out_factor = 10
         # 1400hz tall zone box
@@ -430,7 +431,7 @@ class AudioSearch:
                 print("query_dataframe_for_peaks_in_target_zone_binary_search() took",
                       '{0:.2f}'.format(avg_time * 1000), "ms")
 
-            old_peaks_in_target_zone_method = False
+            old_peaks_in_target_zone_method = True
             if old_peaks_in_target_zone_method:
                 paired_df_peak_locations_old, n_pairs_old = self.query_dataframe_for_peaks_in_target_zone(
                     df_peak_locations, zone_freq_end, zone_freq_start, zone_time_end, zone_time_start)
@@ -582,8 +583,7 @@ def get_n_random_mp3s_to_test(audio_search, root_directory, test_size):
         if len(mp3_filepaths) > 0:
             for mp3_i, mp3_filepath in enumerate(mp3_filepaths[0:1]):
                 try:
-                    # TODO refactor this method out of AudioSearch class
-                    mp3_metadata = audio_search.get_mp3_metadata(mp3_filepath)
+                    mp3_metadata = get_mp3_metadata(mp3_filepath)
                 except KeyError:
                     # this song doesn't have the required metadata, so we'll just skip it
                     continue
@@ -610,14 +610,14 @@ def load_audio_data_into_queue(audio_queue, usable_mp3s):
 
 def get_test_set_and_test(audio_search, root_directory):
     # test_list_json_read_path = None
-    test_list_json_read_path = 'test_mp3_paths_5.json'
+    test_list_json_read_path = 'test_mp3_paths_.json'
     if test_list_json_read_path is not None:
         with open(test_list_json_read_path, 'r')as json_fp:
             mp3_filepaths_to_test = json.load(json_fp)
     else:
-        test_size = 250
+        test_size = 3
         mp3_filepaths_to_test = get_n_random_mp3s_to_test(audio_search, root_directory, test_size)
-        test_list_json_write_path = 'test_mp3_paths_250.json'
+        test_list_json_write_path = 'test_mp3_paths_.json'
         with open(test_list_json_write_path, 'w')as json_fp:
             json.dump(mp3_filepaths_to_test, json_fp)
 
@@ -688,7 +688,7 @@ def main(insert_into_database=False, root_directory='G:\\Users\\Luke\\Music\\iTu
     if insert_into_database:
         insert_mp3s_from_directory_in_random_order(audio_prints_db, root_directory, n_processes=1)
     else:
-        audio_search = AudioSearch(audio_prints_db=audio_prints_db())
+        audio_search = AudioSearch(audio_prints_db=audio_prints_db(), do_plotting=True)
         get_test_set_and_test(audio_search, root_directory)
     return
 
