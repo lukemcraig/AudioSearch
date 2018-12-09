@@ -27,7 +27,7 @@ from ram_audio_print_db import RamAudioPrintDB
 
 from shazam_plots import plot_recognition_rate, plot_spectrogram_and_peak_subplots_detailed, start_hist_subplots, \
     make_next_hist_subplot, show_hist_plot, plot_hist_of_stks, plot_show, plot_scatter_of_fingerprint_offsets, \
-    plot_spectrogram_peaks, plot_spectrogram_and_peak_subplots
+    plot_spectrogram_peaks, plot_spectrogram_and_peak_subplots, finish_scatter_of_fingerprint_offsets
 
 
 class AudioSearch:
@@ -253,12 +253,16 @@ class AudioSearch:
                     local_fp_offsets.append(local_fp_offset)
 
                     if self.do_plotting:
-                        plot_scatter_of_fingerprint_offsets(fingerprint_i, db_fp_offset, db_fp_song_id, local_fp_offset,
+                        # if db_fp_song_id == 1062:
+                        # if db_fp_song_id == 6078:
+                        plot_scatter_of_fingerprint_offsets(fingerprint_i, db_fp_offset, db_fp_song_id,
+                                                            local_fp_offset,
                                                             len(fingerprints))
 
                     stk = db_fp_offset - local_fp_offset
                     stks.append(stk)
         if self.do_plotting:
+            finish_scatter_of_fingerprint_offsets()
             plot_show()
         df_fingerprint_matches = pd.DataFrame({
             "songID": db_fp_song_ids,

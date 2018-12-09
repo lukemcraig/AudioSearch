@@ -142,6 +142,15 @@ def plot_show():
 
 
 def plot_scatter_of_fingerprint_offsets(color_index, db_fp_offset, db_fp_song_id, local_fp_offset, n_fingerprints):
-    viridis = cm.get_cmap('viridis', n_fingerprints).colors
-    plt.scatter(db_fp_offset, local_fp_offset, c=viridis[color_index])
-    plt.text(db_fp_offset, local_fp_offset, db_fp_song_id)
+    plt.style.use('ggplot')
+    # viridis = cm.get_cmap('viridis', n_fingerprints).colors
+    plt.scatter(db_fp_offset, local_fp_offset)  # c=viridis[color_index])
+    # plt.text(db_fp_offset, local_fp_offset, db_fp_song_id)
+    return
+
+
+def finish_scatter_of_fingerprint_offsets():
+    plt.title("Incorrect Song")
+    plt.xlabel("Remote fingerprint offset")
+    plt.ylabel("Local fingerprint offset")
+    return
