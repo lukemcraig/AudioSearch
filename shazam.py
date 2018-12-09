@@ -41,10 +41,11 @@ class AudioSearch:
 
     time_n_repeats = 100
 
-    def __init__(self, audio_prints_db, do_plotting=False):
+    def __init__(self, audio_prints_db, do_plotting=False, noise_type='White'):
         self.audio_prints_db = audio_prints_db
         self.do_plotting = do_plotting
-        pass
+        self.noise_type = noise_type
+        self.pub_data = None
 
     def insert_mp3s_fingerprints_into_database(self, mp3_filepaths, skip_existing_songs=False):
         for mp3_i, mp3_filepath in enumerate(mp3_filepaths):
@@ -66,7 +67,7 @@ class AudioSearch:
                 print(mp3_filepath, flush=True)
             except UnicodeEncodeError:
                 print(mp3_filepath.encode('ascii', 'ignore'), flush=True)
-            data, rate, metadata = load_audio_data(mp3_filepath)
+            data, rate, metadata = load_audio_data_and_meta(mp3_filepath)
             fingerprints = self.get_fingerprints_from_audio(data, rate)
             sys.stdout.flush()
             self.insert_one_mp3_with_fingerprints_into_database(metadata, fingerprints)
@@ -75,7 +76,7 @@ class AudioSearch:
 
     def measure_performance_of_multiple_snrs_and_mp3s(self, usable_mp3s):
         snrs_to_test = [-15, -12, -9, -6, -3, 0, 3, 6, 9, 12, 15]
-        snrs_to_test = [30]
+        # snrs_to_test = [30]
         print("testing", usable_mp3s, "at", snrs_to_test, "dBs each")
         subset_clip_lengths = [15, 10, 5]
         if self.do_plotting or True:
@@ -119,7 +120,7 @@ class AudioSearch:
                 if self.do_plotting or True:
                     plot_recognition_rate(recognition_rate, snrs_to_test, len(usable_mp3s),
                                           clips_length=subset_clip_length, marker=markers[clip_len_i],
-                                          linestyle=linestyles[clip_len_i])
+                                          linestyle=linestyles[clip_len_i], noise_type=self.noise_type)
         if self.do_plotting or True:
             plot_show()
 
@@ -185,7 +186,7 @@ class AudioSearch:
         # TODO false positives?
         correct_match = max_hist_song == song_doc['_id']
         # print("correct_match=", correct_match)
-        if self.do_plotting or True:
+        if self.do_plotting:
             show_hist_plot(max_hist_song, song_doc)
         return max_hist_song, correct_match
 
@@ -207,12 +208,11 @@ class AudioSearch:
         max_hist_song = None
         # for i, song_id in enumerate([2829, 5893, 9496]):
         for i, song_id in enumerate(index_set):
-            print(i)
+            # print(i)
             stks_in_songID = df_fingerprint_matches.loc[song_id]
             if self.do_plotting:
                 if i < n_subplots:
                     make_next_hist_subplot(ax, i, n_subplots, song_id, len(stks_in_songID))
-
             # make a histogram with bin width of 1
             unique, unique_counts = np.unique(stks_in_songID.values, return_counts=True)
             unique_max = unique.max()
@@ -325,8 +325,10 @@ class AudioSearch:
         return data
 
     def add_noise(self, data, desired_snr_db):
-        # TODO real noise audio
-        noise = self.get_white_noise(data)
+        if self.noise_type == 'Pub':
+            noise = self.get_pub_noise(data)
+        else:
+            noise = self.get_white_noise(data)
 
         rms_signal = self.get_rms_linear(data)
         rms_noise = self.get_rms_linear(noise)
@@ -540,6 +542,13 @@ class AudioSearch:
         peak_f = np.right_shift(key, np.uint32(20))
         return peak_f, second_peak_f, time_delta
 
+    def get_pub_noise(self, data):
+        # cache it
+        if self.pub_data is None:
+            pub_data, rate = load_audio_data('noise_sample\\pub.wav')
+            self.pub_data = pub_data
+        return self.pub_data[:len(data)]
+
 
 def get_mp3_metadata(filepath):
     mp3tags = EasyID3(filepath)
@@ -551,14 +560,19 @@ def get_mp3_metadata(filepath):
     return metadata
 
 
-def load_audio_data(filepath):
+def load_audio_data_and_meta(filepath):
     # print("loading audio", flush=True)
-    desired_rate = 8000
-    data, rate = librosa.load(filepath, mono=True, sr=desired_rate)
-    assert rate == desired_rate
+    data, rate = load_audio_data(filepath)
     metadata = get_mp3_metadata(filepath)
     metadata["track_length_s"] = len(data) / rate
     return data, rate, metadata
+
+
+def load_audio_data(filepath):
+    desired_rate = 8000
+    data, rate = librosa.load(filepath, mono=True, sr=desired_rate)
+    assert rate == desired_rate
+    return data, rate
 
 
 def get_mp3_genres(filepath):
@@ -607,14 +621,14 @@ def get_n_random_mp3s_to_test(audio_search, root_directory, test_size):
 def load_audio_data_into_queue(audio_queue, usable_mp3s):
     for mp3_i, mp3_filepath in enumerate(usable_mp3s):
         # print(mp3_i, mp3_filepath, "/", len(usable_mp3s))
-        data, rate, metadata = load_audio_data(mp3_filepath)
+        data, rate, metadata = load_audio_data_and_meta(mp3_filepath)
         audio_queue.put((data, rate, metadata))
     return
 
 
 def get_test_set_and_test(audio_search, root_directory):
     # test_list_json_read_path = None
-    test_list_json_read_path = 'test_mp3_paths_.json'
+    test_list_json_read_path = 'test_mp3_paths_250.json'
     if test_list_json_read_path is not None:
         with open(test_list_json_read_path, 'r')as json_fp:
             mp3_filepaths_to_test = json.load(json_fp)
@@ -692,7 +706,7 @@ def main(insert_into_database=False, root_directory='G:\\Users\\Luke\\Music\\iTu
     if insert_into_database:
         insert_mp3s_from_directory_in_random_order(audio_prints_db, root_directory, n_processes=1)
     else:
-        audio_search = AudioSearch(audio_prints_db=audio_prints_db(), do_plotting=True)
+        audio_search = AudioSearch(audio_prints_db=audio_prints_db(), do_plotting=False, noise_type='Pub')
         get_test_set_and_test(audio_search, root_directory)
     return
 
