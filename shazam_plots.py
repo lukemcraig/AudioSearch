@@ -1,4 +1,4 @@
-from matplotlib import pyplot as plt, ticker as plticker, colors as colors, cm
+from matplotlib import pyplot as plt, ticker as plticker, colors as colors, cm, patches
 
 
 def plot_grid_of_filter_size(max_filter_size):
@@ -8,13 +8,19 @@ def plot_grid_of_filter_size(max_filter_size):
     return
 
 
-def plot_spectrogram_peaks(peak_locations, f, t):
+def reset_plot_lims():
+    plt.xlim()
+    plt.ylim()
+    return
+
+
+def plot_spectrogram_peaks(peak_locations):
     # plt.scatter(t[peak_locations[:, 1]], f[peak_locations[:, 0]], marker="*", c="red")
     plt.scatter(peak_locations[:, 1], peak_locations[:, 0], marker="*", c="Tomato", edgecolor="Snow", linewidths=.5)
     return
 
 
-def plot_spectrogram(Sxx, f, t, alpha=1.0):
+def plot_spectrogram(Sxx, alpha=1.0):
     color_norm = colors.LogNorm(vmin=1 / (2 ** 20), vmax=1)
     # color_norm = colors.LogNorm(vmin=Sxx.min(), vmax=Sxx.max())
     # plt.pcolormesh(t, f, Sxx, norm=color_norm, cmap='Greys')
@@ -35,8 +41,9 @@ def plot_spectrogram(Sxx, f, t, alpha=1.0):
     return
 
 
-def plot_recognition_rate(recognition_rate, snrs_to_test, n_songs, clips_length, marker="o", linestyle='-', noise_type="White"):
-    plt.style.use('ggplot')
+def plot_recognition_rate(recognition_rate, snrs_to_test, n_songs, clips_length, marker="o", linestyle='-',
+                          noise_type="White"):
+    use_ggplot()
     plt.plot(snrs_to_test, recognition_rate, marker=marker, linestyle=linestyle, label=str(clips_length) + " sec")
     plt.xticks(snrs_to_test)
     plt.ylim(0, 100)
@@ -52,17 +59,29 @@ def plot_recognition_rate(recognition_rate, snrs_to_test, n_songs, clips_length,
     return
 
 
+def plot_target_zone(zone_freq_start, zone_freq_end, zone_time_start, zone_time_end):
+    rect = patches.Rectangle((zone_time_start, zone_freq_start), zone_time_end - zone_time_start,
+                             zone_freq_end - zone_freq_start, edgecolor="black",
+                             facecolor=(.1, .1, .7, .2))
+    plt.gca().add_patch(rect)
+    return
+
+
+def use_ggplot():
+    plt.style.use('ggplot')
+
+
 def plot_spectrogram_and_peak_subplots(Sxx, f, max_filter, max_filter_size, peak_locations, t):
     ax = plt.subplot(1, 3, 1)
     plt.title("1. Spectrogram")
-    plot_spectrogram(Sxx, f, t)
+    plot_spectrogram(Sxx)
     plt.subplot(1, 3, 2, sharex=ax, sharey=ax)
     plt.title("2. Spectrogram + Peaks")
-    plot_spectrogram(Sxx, f, t)
-    plot_spectrogram_peaks(peak_locations, f, t)
+    plot_spectrogram(Sxx)
+    plot_spectrogram_peaks(peak_locations)
     plt.subplot(1, 3, 3, sharex=ax, sharey=ax)
     plt.title("3. Peaks")
-    plot_spectrogram_peaks(peak_locations, f, t)
+    plot_spectrogram_peaks(peak_locations)
     plt.xlim(0, 350)
     plt.ylim(0, 512)
     plt.show()
@@ -72,11 +91,11 @@ def plot_spectrogram_and_peak_subplots(Sxx, f, max_filter, max_filter_size, peak
 def plot_spectrogram_and_peak_subplots_detailed(Sxx, f, max_filter, max_filter_size, peak_locations, t):
     ax = plt.subplot(2, 3, 1)
     plt.title("1. Spectrogram")
-    plot_spectrogram(Sxx, f, t)
+    plot_spectrogram(Sxx)
     plt.subplot(2, 3, 2, sharex=ax, sharey=ax)
     plt.title("2. Max Filtered")
     plot_grid_of_filter_size(max_filter_size)
-    plot_spectrogram(max_filter, f, t)
+    plot_spectrogram(max_filter)
     # rect = patches.Rectangle((0, 0), max_filter_size[1] * t_step, max_filter_size[0] * f_step, edgecolor="black")
     # plt.gca().add_patch(rect)
     # ylim = plt.ylim()
@@ -89,19 +108,19 @@ def plot_spectrogram_and_peak_subplots_detailed(Sxx, f, max_filter, max_filter_s
     # plt.xlim(xlim)
     plt.subplot(2, 3, 3, sharex=ax, sharey=ax)
     plt.title("3.(A) Max Filtered == Spectrogram")
-    plot_spectrogram(max_filter, f, t)
+    plot_spectrogram(max_filter)
     plot_grid_of_filter_size(max_filter_size)
-    plot_spectrogram_peaks(peak_locations, f, t)
+    plot_spectrogram_peaks(peak_locations)
     plt.subplot(2, 3, 4, sharex=ax, sharey=ax)
     plt.title("3.(B) Max Filtered == Spectrogram")
-    plot_spectrogram(Sxx, f, t)
+    plot_spectrogram(Sxx)
     plot_grid_of_filter_size(max_filter_size)
-    plot_spectrogram_peaks(peak_locations, f, t)
+    plot_spectrogram_peaks(peak_locations)
     plt.subplot(2, 3, 5, sharex=ax, sharey=ax)
     plt.title("3.(C) Max Filtered == Spectrogram")
     # plot_spectrogram(Sxx, f, t)
     plot_grid_of_filter_size(max_filter_size)
-    plot_spectrogram_peaks(peak_locations, f, t)
+    plot_spectrogram_peaks(peak_locations)
     plt.xlim(0, 500)
     plt.ylim(0, 512)
     plt.show()

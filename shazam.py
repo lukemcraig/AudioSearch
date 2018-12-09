@@ -27,7 +27,8 @@ from ram_audio_print_db import RamAudioPrintDB
 
 from shazam_plots import plot_recognition_rate, plot_spectrogram_and_peak_subplots_detailed, start_hist_subplots, \
     make_next_hist_subplot, show_hist_plot, plot_hist_of_stks, plot_show, plot_scatter_of_fingerprint_offsets, \
-    plot_spectrogram_peaks, plot_spectrogram_and_peak_subplots, finish_scatter_of_fingerprint_offsets
+    plot_spectrogram_peaks, plot_spectrogram_and_peak_subplots, finish_scatter_of_fingerprint_offsets, use_ggplot, \
+    plot_target_zone, reset_plot_lims
 
 
 class AudioSearch:
@@ -419,7 +420,13 @@ class AudioSearch:
                     lambda: self.get_target_zone_bounds(anchor_f, anchor_t, f_max, t_max, zone_f_size,
                                                         zone_t_offset, zone_t_size))
                 print("get_target_zone_bounds() took", '{0:.2f}'.format(avg_time * 1000), "ms")
-
+            if self.do_plotting or True:
+                print(i, anchor_t, anchor_f)
+                use_ggplot()
+                reset_plot_lims()
+                plot_spectrogram_peaks(peak_locations)
+                plot_target_zone(zone_freq_start, zone_freq_end, zone_time_start, zone_time_end)
+                plot_show()
             # paired_df_peak_locations_sweep, n_pairs_sweep = self.query_dataframe_for_peaks_in_target_zone_sweep_lines(
             #     df_peak_locations, peak_locations_t_sort, peak_locations_f_sort,
             #     zone_freq_end, zone_freq_start, zone_time_end, zone_time_start)
@@ -628,7 +635,7 @@ def load_audio_data_into_queue(audio_queue, usable_mp3s):
 
 def get_test_set_and_test(audio_search, root_directory):
     # test_list_json_read_path = None
-    test_list_json_read_path = 'test_mp3_paths_250.json'
+    test_list_json_read_path = 'test_mp3_paths_.json'
     if test_list_json_read_path is not None:
         with open(test_list_json_read_path, 'r')as json_fp:
             mp3_filepaths_to_test = json.load(json_fp)
