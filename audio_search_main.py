@@ -642,14 +642,14 @@ def load_audio_data_into_queue(audio_queue, usable_mp3s):
 
 def get_test_set_and_test(audio_search, root_directory):
     # test_list_json_read_path = None
-    test_list_json_read_path = 'test_mp3_paths_.json'
+    test_list_json_read_path = 'song_test_sets\\test_mp3_paths_.json'
     if test_list_json_read_path is not None:
         with open(test_list_json_read_path, 'r')as json_fp:
             mp3_filepaths_to_test = json.load(json_fp)
     else:
         test_size = 3
         mp3_filepaths_to_test = get_n_random_mp3s_to_test(audio_search, root_directory, test_size)
-        test_list_json_write_path = 'test_mp3_paths_.json'
+        test_list_json_write_path = 'song_test_sets\\test_mp3_paths_.json'
         with open(test_list_json_write_path, 'w')as json_fp:
             json.dump(mp3_filepaths_to_test, json_fp)
 
