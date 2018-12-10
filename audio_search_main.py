@@ -25,7 +25,7 @@ from audio_search_dbs import DuplicateKeyError
 from mongo_audio_print_db import MongoAudioPrintDB
 from ram_audio_print_db import RamAudioPrintDB
 
-from shazam_plots import plot_recognition_rate, plot_spectrogram_and_peak_subplots_detailed, start_hist_subplots, \
+from audio_search_plotting import plot_recognition_rate, plot_spectrogram_and_peak_subplots_detailed, start_hist_subplots, \
     make_next_hist_subplot, show_hist_plot, plot_hist_of_stks, plot_show, plot_scatter_of_fingerprint_offsets, \
     plot_spectrogram_peaks, plot_spectrogram_and_peak_subplots, finish_scatter_of_fingerprint_offsets, use_ggplot, \
     plot_target_zone, reset_plot_lims, plot_spectrogram

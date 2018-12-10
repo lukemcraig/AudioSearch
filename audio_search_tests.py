@@ -1,5 +1,5 @@
 import numpy as np
-from shazam import combine_parts_into_key, decode_hash, add_noise, get_rms_linear, convert_to_db
+from audio_search_main import combine_parts_into_key, decode_hash, add_noise, get_rms_linear, convert_to_db
 
 
 def test_hash_function():
