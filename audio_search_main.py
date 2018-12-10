@@ -31,9 +31,9 @@ from audio_search_plotting import plot_recognition_rate, plot_spectrogram_and_pe
 
 
 class AudioSearch:
-    time_functions = True
+    time_functions = False
     time_add_noise = False & time_functions
-    time_find_spec_peaks = True & time_functions
+    time_find_spec_peaks = False & time_functions
     time_get_target_zone_bounds = False & time_functions
     time_query_peaks_for_target_zone = False & time_functions
     time_query_peaks_for_target_zone_bs = False & time_functions
@@ -76,9 +76,9 @@ class AudioSearch:
 
     def measure_performance_of_multiple_snrs_and_mp3s(self, usable_mp3s):
         snrs_to_test = [-15, -12, -9, -6, -3, 0, 3, 6, 9, 12, 15]
-        snrs_to_test = [300]
+        # snrs_to_test = [300]
         print("testing", usable_mp3s, "at", snrs_to_test, "dBs each")
-        subset_clip_lengths = [450, 350]
+        subset_clip_lengths = [15, 10, 5]
         if self.do_plotting or True:
             markers = ["D", "s", "^"]
             linestyles = ['-', '--', ':']
@@ -293,8 +293,8 @@ class AudioSearch:
         if song_doc is None:
             print("inserting song into database")
             new_id = self.audio_prints_db.get_next_song_id()
-            if new_id > 10000:
-                raise Exception("We reached 10,000 songs, don't insert any more.")
+            # if new_id > 10000:
+            #     raise Exception("We reached 10,000 songs, don't insert any more.")
             song['_id'] = new_id
 
             inserted_id = self.audio_prints_db.insert_one_song(song)
@@ -360,7 +360,6 @@ class AudioSearch:
         # print('get_spectrogram')
         nperseg = 1024
         noverlap = int(np.round(nperseg / 1.5))
-        # TODO scaling?
         f, t, Sxx = scipy.signal.spectrogram(data, fs=rate, scaling='spectrum',
                                              mode='magnitude',
                                              window='hann',
@@ -384,8 +383,6 @@ class AudioSearch:
         # print("get_fingerprints_from_peaks")
         n_peaks = len(peak_locations)
         print("n_peaks=", n_peaks)
-        # TODO fan out factor
-        fan_out_factor = 10
         # 1400hz tall zone box
         zone_f_size = 1400 // f_step
         # 6 second wide zone box
@@ -713,18 +710,30 @@ def insert_mp3s_from_directory_in_random_order(audio_prints_db, root_directory, 
     return
 
 
-def main(insert_into_database=False, root_directory='G:\\Users\\Luke\\Music\\iTunes\\iTunes Media\\Music\\'):
+def main(insert_into_database=False, root_directory='G:\\Users\\Luke\\Music\\iTunes\\iTunes Media\\Music\\',
+         do_plotting=False, noise_type='White', n_processes=1):
     audio_prints_db = MongoAudioPrintDB
     # audio_prints_db = RamAudioPrintDB
     if insert_into_database:
-        insert_mp3s_from_directory_in_random_order(audio_prints_db, root_directory, n_processes=1)
+        insert_mp3s_from_directory_in_random_order(audio_prints_db, root_directory, n_processes=n_processes)
     else:
-        audio_search = AudioSearch(audio_prints_db=audio_prints_db(), do_plotting=False, noise_type='White')
+        audio_search = AudioSearch(audio_prints_db=audio_prints_db(), do_plotting=do_plotting, noise_type=noise_type)
         get_test_set_and_test(audio_search, root_directory)
     return
 
 
-# TODO command line interface
-
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description='Create and search a database of audio fingerprints')
+    parser.add_argument('--insert', dest='insert', action='store_true',
+                        help='to insert into the database instead of testing')
+    parser.add_argument('--plot', dest='plot', action='store_true', help='whether to plot the algorithm')
+    parser.add_argument('dir', type=str, metavar='d', help='the root directory of the library of mp3s')
+    parser.add_argument('-processes', metavar='p', type=int, help='the number of processes to use during insertion')
+    parser.add_argument('-noise', metavar='n', type=str, help='noise type (White or Pub)')
+    parser.set_defaults(insert=False)
+    parser.set_defaults(plot=False)
+    parser.set_defaults(processes=1)
+    parser.set_defaults(noise="White")
+    args = parser.parse_args()
+    main(insert_into_database=args.insert, root_directory=args.dir, noise_type=args.noise, n_processes=args.processes,
+         do_plotting=args.plot)
