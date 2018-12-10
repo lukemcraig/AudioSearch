@@ -11,10 +11,8 @@ from queue import Queue
 import numpy as np
 import scipy.signal
 import scipy.ndimage.filters
-# import scipy.ndimage.measurements
 import pandas as pd
-
-# import bintrees.rbtree
+import argparse
 
 import librosa
 from mutagen.easyid3 import EasyID3
@@ -25,16 +23,17 @@ from audio_search_dbs import DuplicateKeyError
 from mongo_audio_print_db import MongoAudioPrintDB
 from ram_audio_print_db import RamAudioPrintDB
 
-from audio_search_plotting import plot_recognition_rate, plot_spectrogram_and_peak_subplots_detailed, start_hist_subplots, \
+from audio_search_plotting import plot_recognition_rate, plot_spectrogram_and_peak_subplots_detailed, \
+    start_hist_subplots, \
     make_next_hist_subplot, show_hist_plot, plot_hist_of_stks, plot_show, plot_scatter_of_fingerprint_offsets, \
     plot_spectrogram_peaks, plot_spectrogram_and_peak_subplots, finish_scatter_of_fingerprint_offsets, use_ggplot, \
     plot_target_zone, reset_plot_lims, plot_spectrogram
 
 
 class AudioSearch:
-    time_functions = False
+    time_functions = True
     time_add_noise = False & time_functions
-    time_find_spec_peaks = False & time_functions
+    time_find_spec_peaks = True & time_functions
     time_get_target_zone_bounds = False & time_functions
     time_query_peaks_for_target_zone = False & time_functions
     time_query_peaks_for_target_zone_bs = False & time_functions
@@ -77,9 +76,9 @@ class AudioSearch:
 
     def measure_performance_of_multiple_snrs_and_mp3s(self, usable_mp3s):
         snrs_to_test = [-15, -12, -9, -6, -3, 0, 3, 6, 9, 12, 15]
-        # snrs_to_test = [300]
+        snrs_to_test = [300]
         print("testing", usable_mp3s, "at", snrs_to_test, "dBs each")
-        subset_clip_lengths = [15, 10, 5]
+        subset_clip_lengths = [450, 350]
         if self.do_plotting or True:
             markers = ["D", "s", "^"]
             linestyles = ['-', '--', ':']
@@ -339,9 +338,9 @@ class AudioSearch:
 
         desired_snr_linear = self.db_to_linear(desired_snr_db)
         adjustment = rms_signal / (rms_noise * desired_snr_linear)
-        white_noise_adjusted = noise * adjustment
+        noise_adjusted = noise * adjustment
 
-        return data + white_noise_adjusted
+        return data + noise_adjusted
 
     def get_white_noise(self, data):
         random = np.random.RandomState(42)
@@ -720,7 +719,7 @@ def main(insert_into_database=False, root_directory='G:\\Users\\Luke\\Music\\iTu
     if insert_into_database:
         insert_mp3s_from_directory_in_random_order(audio_prints_db, root_directory, n_processes=1)
     else:
-        audio_search = AudioSearch(audio_prints_db=audio_prints_db(), do_plotting=False, noise_type='Pub')
+        audio_search = AudioSearch(audio_prints_db=audio_prints_db(), do_plotting=False, noise_type='White')
         get_test_set_and_test(audio_search, root_directory)
     return
 

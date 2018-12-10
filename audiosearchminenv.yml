@@ -9,7 +9,6 @@ dependencies:
   - scipy
   - matplotlib
   - pymongo
-  - bintrees
   - pip:
     - audioread==2.1.6
     - joblib==0.13.0
@@ -18,5 +17,4 @@ dependencies:
     - mutagen==1.41.1
     - resampy==0.2.1
     - tables==3.4.4
-prefix: C:\ProgramData\Anaconda3\envs\audiosearch
 
