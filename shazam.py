@@ -28,7 +28,7 @@ from ram_audio_print_db import RamAudioPrintDB
 from shazam_plots import plot_recognition_rate, plot_spectrogram_and_peak_subplots_detailed, start_hist_subplots, \
     make_next_hist_subplot, show_hist_plot, plot_hist_of_stks, plot_show, plot_scatter_of_fingerprint_offsets, \
     plot_spectrogram_peaks, plot_spectrogram_and_peak_subplots, finish_scatter_of_fingerprint_offsets, use_ggplot, \
-    plot_target_zone, reset_plot_lims
+    plot_target_zone, reset_plot_lims, plot_spectrogram
 
 
 class AudioSearch:
@@ -100,6 +100,7 @@ class AudioSearch:
             print("mp3_i", mp3_i)
             print("queue size:", audio_queue.qsize())
             data, rate, metadata = audio_queue.get()  # load_audio_data(mp3_filepath)
+
             print(mp3_i, mp3_filepath, "/", len(usable_mp3s))
             for clip_len_i, subset_clip_length in enumerate(subset_clip_lengths):
                 print("subset_clip_length:", subset_clip_length, "sec")
@@ -159,6 +160,8 @@ class AudioSearch:
             print("Sxx was ", Sxx.shape)
             print("find_spectrogram_peaks() took", '{0:.2f}'.format(avg_time * 1000), "ms")
         if self.do_plotting:
+            # plot_spectrogram(Sxx)
+            # plot_show()
             plot_spectrogram_and_peak_subplots_detailed(Sxx, f, max_filter, max_filter_size, peak_locations, t)
 
         fingerprints = self.get_fingerprints_from_peaks(len(f) - 1, f_step, peak_locations, len(t) - 1, t_step)
