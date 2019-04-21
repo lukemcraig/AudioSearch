@@ -6,13 +6,16 @@ Created for my [term paper](https://github.com/lukemcraig/AudioSearch/blob/maste
 > 
 > -- Dr. Raghuveer Mohan
 
+-------
 Some neat figures in my paper:
- 
+
 ![figure 7-2](https://github.com/lukemcraig/AudioSearch/blob/master/figures/max%20filter.png)
+![figure 6-2](https://github.com/lukemcraig/AudioSearch/blob/master/figures/target%20zone.png)
+![figure 8-3](https://github.com/lukemcraig/AudioSearch/blob/master/figures/pub%20noise.png)
 
-![figure 6-2](https://github.com/lukemcraig/AudioSearch/blob/master/figures/target%zone.png)
 
-![figure 8-3](https://github.com/lukemcraig/AudioSearch/blob/master/figures/pub%noise.png)
+
+
 
 ------
 ## Usage:
