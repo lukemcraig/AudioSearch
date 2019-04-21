@@ -1,9 +1,19 @@
 # AudioSearch
-Python implementation of "An Industrial-Strength Audio Search Algorithm"
+Python implementation of "[An Industrial-Strength Audio Search Algorithm](https://www.ee.columbia.edu/~dpwe/papers/Wang03-shazam.pdf)"
 
-https://www.ee.columbia.edu/~dpwe/papers/Wang03-shazam.pdf
+Created for my term paper in CS 5110 - Design and Analysis of Algorithms, Fall 2018.
+>  One of the things I look for most in a term paper is its simplicity in explaining complex ideas. This year, the Best Term Paper Award goes to Luke Craig for his paper titled "Robust Audio Fingerprinting Using Combinatorial Hashing and Temporal Offsets". Many congratulations to him.
+> 
+> -- Dr. Raghuveer Mohan
 
-Usage:
+<object data="https://github.com/lukemcraig/AudioSearch/blob/master/craiglm_TermPaper_CS5100_Fall_2018.pdf" type="application/pdf" width="700px" height="700px">
+    <embed src="https://github.com/lukemcraig/AudioSearch/blob/master/craiglm_TermPaper_CS5100_Fall_2018.pdf">
+        <p><a href="https://github.com/lukemcraig/AudioSearch/blob/master/craiglm_TermPaper_CS5100_Fall_2018.pdf">Read the paper here</a>.</p>
+    </embed>
+</object>
+
+------
+## Usage:
 
 positional arguments:
 * d             the root directory of the library of mp3s to insert or test
