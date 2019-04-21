@@ -4,7 +4,15 @@ Python implementation of "[An Industrial-Strength Audio Search Algorithm](https:
 Created for my [term paper](https://github.com/lukemcraig/AudioSearch/blob/master/craiglm_TermPaper_CS5100_Fall_2018.pdf) in CS 5110 - Design and Analysis of Algorithms, Fall 2018.
 >  One of the things I look for most in a term paper is its simplicity in explaining complex ideas. This year, the Best Term Paper Award goes to Luke Craig for his paper titled "Robust Audio Fingerprinting Using Combinatorial Hashing and Temporal Offsets". Many congratulations to him.
 > 
-> -- _Dr. Raghuveer Mohan_
+> -- Dr. Raghuveer Mohan
+
+Some neat figures in my paper:
+ 
+![figure 7-2](https://github.com/lukemcraig/AudioSearch/blob/master/figures/max%20filter.png)
+
+![figure 6-2](https://github.com/lukemcraig/AudioSearch/blob/master/figures/target%zone.png)
+
+![figure 8-3](https://github.com/lukemcraig/AudioSearch/blob/master/figures/pub%noise.png)
 
 ------
 ## Usage:
